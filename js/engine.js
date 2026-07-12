@@ -100,7 +100,7 @@ function buildStMapping(stRows) {
         const row = stRows[i];
         if (row.length > Math.max(colName, colAbbr)) {
             const name = String(row[colName] || "").trim();
-            const abbr = String(row[colAbbr] || "").trim();
+            const abbr = String(row[colAbbr] || "").trim().toUpperCase();
             if (name) {
                 mapping[name.toLowerCase()] = abbr;
             }
@@ -133,22 +133,22 @@ function processKfm(rows, stMapping) {
         if (row.length <= Math.max(colBranch, colProduct, colQty)) continue;
         
         const branch = String(row[colBranch] || "").trim();
-        const product = String(row[colProduct] || "").trim();
+        const product = String(row[colProduct] || "").trim().toUpperCase();
         const productName = String(row[colProductName] || "").trim();
         const qtyStr = String(row[colQty] || "").trim().replace(/,/g, "");
         
         if (!product) continue;
         
         // Rule: Filter out products starting with 'C'
-        if (product.toUpperCase().startsWith("C")) {
+        if (product.startsWith("C")) {
             continue;
         }
         
         // Map branch name to ST abbreviation
-        let stAbbr = branch;
+        let stAbbr = branch.toUpperCase();
         const branchLower = branch.toLowerCase();
         if (stMapping[branchLower]) {
-            stAbbr = stMapping[branchLower];
+            stAbbr = stMapping[branchLower].toUpperCase();
         }
         
         const key = `${stAbbr}_${product}`;
@@ -191,8 +191,8 @@ function processAba(rows, productNameMap) {
         const row = rows[i];
         if (row.length <= Math.max(colST, colProduct, colQty)) continue;
         
-        const stCode = String(row[colST] || "").trim();
-        const product = String(row[colProduct] || "").trim();
+        const stCode = String(row[colST] || "").trim().toUpperCase();
+        const product = String(row[colProduct] || "").trim().toUpperCase();
         const productName = String(row[colProductName] || "").trim();
         const qtyStr = String(row[colQty] || "").trim().replace(/,/g, "");
         const category = colCategory !== -1 && row[colCategory] ? normalizeCategory(row[colCategory]) : "";
