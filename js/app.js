@@ -405,6 +405,8 @@ function checkReadyToRun() {
 async function autoLoadRepoData() {
   logToConsole("Đang kiểm tra dữ liệu đối soát mới nhất trên máy chủ...");
   
+  let participatingStores = 0;
+  
   // Load status metadata
   try {
     const statusUrl = "Ouput/status.json";
@@ -415,6 +417,7 @@ async function autoLoadRepoData() {
       document.getElementById("syncReconcileDate").innerText = status.kfmDate || "N/A";
       document.getElementById("syncKfmFile").innerText = status.kfmFile || "N/A";
       document.getElementById("syncAbaFile").innerText = status.abaFile || "N/A";
+      participatingStores = status.participatingStores || 0;
       logToConsole(`Đã nạp trạng thái đồng bộ: Đối soát ngày ${status.kfmDate}.`);
     } else {
       document.getElementById("syncLastUpdated").innerText = "Chưa có dữ liệu";
@@ -426,53 +429,93 @@ async function autoLoadRepoData() {
     console.error("Could not load status.json", statusErr);
   }
 
+  // Load and parse Result.csv directly
   try {
-    const dataStUrl = "Data/Data ST/DATA ST.xlsx";
-    const kfmUrl = "Data/KFM/KFM.xlsx";
-    const abaUrl = "Data/ABA/ABA.xlsx";
-    
-    // Check if files are accessible
-    const [resSt, resKfm, resAba] = await Promise.all([
-      fetch(dataStUrl),
-      fetch(kfmUrl),
-      fetch(abaUrl)
-    ]);
-    
-    if (!resSt.ok || !resKfm.ok || !resAba.ok) {
-      logToConsole("Không tìm thấy dữ liệu tự động sẵn có trên máy chủ. Bạn có thể kéo thả file để chạy đối soát thủ công.");
+    logToConsole("Đang tải dữ liệu kết quả đối soát trực tiếp từ máy chủ...");
+    const resultUrl = "Ouput/Result.csv";
+    const resResult = await fetch(resultUrl);
+    if (!resResult.ok) {
+      logToConsole("Không tìm thấy kết quả đối soát trên máy chủ. Vui lòng chạy đối soát bằng Script trước.", "error");
       return;
     }
     
-    logToConsole("Tìm thấy dữ liệu tự động. Đang tải và phân tích...");
+    const csvText = await resResult.text();
+    const rows = parseCsvText(csvText);
     
-    const [bufSt, bufKfm, bufAba] = await Promise.all([
-      resSt.arrayBuffer(),
-      resKfm.arrayBuffer(),
-      resAba.arrayBuffer()
-    ]);
+    if (rows.length < 2) {
+      logToConsole("Không phát hiện chênh lệch (file kết quả trống hoặc khớp 100%).", "success");
+      STATE.results = [];
+      STATE.warnings = [];
+      STATE.stats = {
+        totalSt: participatingStores || 0,
+        mismatchedSt: 0,
+        mismatchedStList: []
+      };
+      renderDashboard();
+      return;
+    }
     
-    STATE.files.dataSt = { name: "DATA ST.xlsx", content: bufSt, loaded: true };
-    STATE.files.kfm = { name: "KFM.xlsx", content: bufKfm, loaded: true };
-    STATE.files.aba = { name: "ABA.xlsx", content: bufAba, loaded: true };
+    const results = [];
+    const warningDict = {};
+    const stLechSet = new Set();
     
-    // Update badge & styles in UI
-    ["dataSt", "kfm", "aba"].forEach(fileKey => {
-      const nameEl = document.getElementById(`name${fileKey.charAt(0).toUpperCase() + fileKey.slice(1)}`);
-      const badgeEl = document.getElementById(`badge${fileKey.charAt(0).toUpperCase() + fileKey.slice(1)}`);
-      if (nameEl && badgeEl) {
-        nameEl.innerText = fileKey === "dataSt" ? "DATA ST.xlsx" : (fileKey === "kfm" ? "KFM.xlsx" : "ABA.xlsx");
-        badgeEl.innerText = "Tự động nạp";
-        badgeEl.className = "status-badge loaded";
-      }
-    });
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.length < 9) continue;
+      
+      const key = String(row[0] || "").trim();
+      const st = String(row[1] || "").trim().toUpperCase();
+      let rawProductCode = String(row[2] || "").trim();
+      let productCode = rawProductCode.replace(/^="|"$/g, ""); // strip =" and "
+      
+      const productName = String(row[3] || "").trim();
+      const category = String(row[4] || "").trim();
+      const loaiHang = String(row[5] || "").trim();
+      const kfmQty = parseFloat(String(row[6] || "").replace(/,/g, "")) || 0;
+      const abaQty = parseFloat(String(row[7] || "").replace(/,/g, "")) || 0;
+      const diff = parseFloat(String(row[8] || "").replace(/,/g, "")) || 0;
+      
+      if (st) stLechSet.add(st);
+      
+      results.push({
+        key,
+        st,
+        productCode,
+        productName,
+        category,
+        loaiHang,
+        kfmQty,
+        abaQty,
+        diff
+      });
+      
+      // Calculate warnings
+      const catInfo = category || loaiHang || "Khác";
+      const wKey = `${st}|${catInfo}`;
+      warningDict[wKey] = (warningDict[wKey] || 0) + diff;
+    }
     
-    logToConsole("Đã nạp tự động 3 file dữ liệu thành công. Đang chạy đối soát...");
-    checkReadyToRun();
+    const warnings = Object.keys(warningDict).map(wKey => {
+      const [st, catInfo] = wKey.split("|");
+      return {
+        st,
+        category: catInfo,
+        diff: warningDict[wKey]
+      };
+    }).sort((a, b) => a.st.localeCompare(b.st));
     
-    // Run reconciliation automatically
-    runReconcile();
+    STATE.results = results;
+    STATE.warnings = warnings;
+    STATE.stats = {
+      totalSt: participatingStores || stLechSet.size,
+      mismatchedSt: stLechSet.size,
+      mismatchedStList: Array.from(stLechSet).sort()
+    };
+    
+    logToConsole("Đã nạp và phân tích xong kết quả đối soát.", "success");
+    renderDashboard();
   } catch (err) {
-    logToConsole("Không thể tự động tải dữ liệu từ máy chủ. Bạn hãy kéo thả file thủ công.");
+    logToConsole(`Không thể tự động tải kết quả từ máy chủ: ${err.message}`, "error");
     console.error("Auto load failed", err);
   }
 }
