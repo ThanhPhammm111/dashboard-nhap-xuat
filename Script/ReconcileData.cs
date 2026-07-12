@@ -478,28 +478,90 @@ namespace ReconcileData
                 if (!string.IsNullOrEmpty(telegramToken) && !string.IsNullOrEmpty(telegramChatId))
                 {
                     Console.WriteLine("");
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("Dang gui bao cao qua Telegram Bot...");
-                    Console.ResetColor();
+                                       var tgMsg = new StringBuilder();
+                    tgMsg.AppendLine("🔔 <b>BÁO CÁO ĐỐI SOÁT XUẤT HÀNG</b>");
+                    tgMsg.AppendLine(string.Format("📅 Ngày đối soát: <b>{0}</b>", FormatDate(kfmDateStr)));
+                    tgMsg.AppendLine(string.Format("📊 Tổng siêu thị tham gia: <b>{0}</b>", allStSet.Count));
 
-                    var tgMsg = new StringBuilder();
-                    tgMsg.AppendLine("📊 <b>BÁO CÁO ĐỐI SOÁT XUẤT HÀNG</b>");
-                    tgMsg.AppendLine(string.Format("\n🏢 Tổng siêu thị tham gia: <b>{0}</b>", allStSet.Count));
-                    tgMsg.AppendLine(string.Format("🚨 Siêu thị thiếu phiếu: <b>{0}</b>", stLechList.Count));
-                    
                     if (warningDict.Count == 0) {
                         tgMsg.AppendLine("\n✅ <i>Tuyệt vời! 100% khớp số liệu.</i>");
                     } else {
-                        tgMsg.AppendLine("\n⚠️ <b>CHI TIẾT CẢNH BÁO:</b>");
-                        var warnings = warningDict.OrderBy(x => x.Key).ToList();
-                        int limit = 20; // Limit to 20 warnings in telegram to avoid 4096 char limit
-                        for (int k = 0; k < Math.Min(warnings.Count, limit); k++) {
-                            var kvp = warnings[k];
+                        var meatWarnings = new List<string>();
+                        var frozenWarnings = new List<string>();
+                        var otherWarnings = new List<string>();
+                        
+                        var meatStSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        var frozenStSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                        foreach (var kvp in warningDict.OrderBy(x => x.Key))
+                        {
                             var wparts = kvp.Key.Split('|');
-                            tgMsg.AppendLine(string.Format("❌ Chi nhánh <b>{0}</b> lệch hàng <i>{1}</i> (Lệch: <b>{2}</b>)", wparts[0], wparts[1], kvp.Value));
+                            string sw = wparts[0];
+                            string cw = wparts[1];
+                            decimal val = kvp.Value;
+                            
+                            string itemStr = string.Format("\n• <b>{0}</b>: <b>{1:N0}</b>", sw, val);
+                            
+                            if (cw.ToLower().Contains("meat"))
+                            {
+                                meatWarnings.Add(itemStr);
+                                meatStSet.Add(sw);
+                            }
+                            else if (cw.ToLower().Contains("frozen"))
+                            {
+                                frozenWarnings.Add(itemStr);
+                                frozenStSet.Add(sw);
+                            }
+                            else
+                            {
+                                otherWarnings.Add(string.Format("\n• <b>{0}</b> (<i>{1}</i>): <b>{2:N0}</b>", sw, cw, val));
+                            }
                         }
-                        if (warnings.Count > limit) {
-                            tgMsg.AppendLine(string.Format("... và <b>{0}</b> cảnh báo khác. Vui lòng xem chi tiết trong file báo cáo.", warnings.Count - limit));
+
+                        tgMsg.AppendLine(string.Format("🥩 Lệch hàng MEAT: <b>{0} CH</b>", meatStSet.Count));
+                        tgMsg.AppendLine(string.Format("❄️ Lệch hàng FROZEN: <b>{0} CH</b>", frozenStSet.Count));
+                        tgMsg.AppendLine("-------------------------------------------------");
+
+                        if (meatWarnings.Count > 0)
+                        {
+                            tgMsg.AppendLine("\n🥩 <b>SIÊU THỊ LỆCH MEAT:</b>");
+                            int limit = 15;
+                            for (int i = 0; i < Math.Min(meatWarnings.Count, limit); i++)
+                            {
+                                tgMsg.Append(meatWarnings[i]);
+                            }
+                            if (meatWarnings.Count > limit)
+                            {
+                                tgMsg.AppendLine(string.Format("\n... và {0} CH khác.", meatWarnings.Count - limit));
+                            }
+                        }
+
+                        if (frozenWarnings.Count > 0)
+                        {
+                            tgMsg.AppendLine("\n\n❄️ <b>SIÊU THỊ LỆCH FROZEN:</b>");
+                            int limit = 15;
+                            for (int i = 0; i < Math.Min(frozenWarnings.Count, limit); i++)
+                            {
+                                tgMsg.Append(frozenWarnings[i]);
+                            }
+                            if (frozenWarnings.Count > limit)
+                            {
+                                tgMsg.AppendLine(string.Format("\n... và {0} CH khác.", frozenWarnings.Count - limit));
+                            }
+                        }
+
+                        if (otherWarnings.Count > 0)
+                        {
+                            tgMsg.AppendLine("\n\n❓ <b>LỆCH NHÓM KHÁC:</b>");
+                            int limit = 10;
+                            for (int i = 0; i < Math.Min(otherWarnings.Count, limit); i++)
+                            {
+                                tgMsg.Append(otherWarnings[i]);
+                            }
+                            if (otherWarnings.Count > limit)
+                            {
+                                tgMsg.AppendLine(string.Format("\n... và {0} CH khác.", otherWarnings.Count - limit));
+                            }
                         }
                     }
                     

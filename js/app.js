@@ -544,9 +544,25 @@ function renderDashboard() {
   DOM.emptyState.style.display = "none";
   DOM.resultsDashboard.style.display = "flex";
   
+  // Calculate Meat and Frozen store mismatch count
+  const meatStSet = new Set();
+  const frozenStSet = new Set();
+  
+  STATE.warnings.forEach(w => {
+    const cat = (w.category || "").toLowerCase();
+    if (cat.includes("meat")) {
+      meatStSet.add(w.st);
+    } else if (cat.includes("frozen")) {
+      frozenStSet.add(w.st);
+    }
+  });
+
   // Set KPIs
   DOM.kpiTotalSt.innerText = STATE.stats.totalSt || 0;
-  DOM.kpiMismatchSt.innerText = STATE.stats.mismatchedSt || 0;
+  const mismatchMeatEl = document.getElementById("kpiMismatchMeat");
+  const mismatchFrozenEl = document.getElementById("kpiMismatchFrozen");
+  if (mismatchMeatEl) mismatchMeatEl.innerText = meatStSet.size;
+  if (mismatchFrozenEl) mismatchFrozenEl.innerText = frozenStSet.size;
   
   // Compute total qty diff
   let totalDiff = 0;
@@ -571,17 +587,54 @@ function renderDashboard() {
       </div>
     `;
   } else {
+    const meatList = [];
+    const frozenList = [];
+    const otherList = [];
+
     STATE.warnings.forEach(w => {
-      const item = document.createElement("div");
-      item.className = "warning-item-ui";
-      item.innerHTML = `
-        <div class="warning-item-desc">
-          Chi nhánh <b>${w.st}</b> lệch nhóm hàng <b>${w.category}</b> (Khả năng chưa tạo phiếu)
-        </div>
-        <span class="warning-qty-badge">Lệch ${w.diff.toLocaleString()}</span>
-      `;
-      DOM.warningListUi.appendChild(item);
+      const cat = (w.category || "").toLowerCase();
+      if (cat.includes("meat")) {
+        meatList.push(w);
+      } else if (cat.includes("frozen")) {
+        frozenList.push(w);
+      } else {
+        otherList.push(w);
+      }
     });
+
+    const appendSection = (title, icon, list, colorClass) => {
+      if (list.length === 0) return;
+      
+      const secHeader = document.createElement("div");
+      secHeader.style.fontWeight = "700";
+      secHeader.style.fontSize = "0.9rem";
+      secHeader.style.marginTop = "18px";
+      secHeader.style.marginBottom = "10px";
+      secHeader.style.paddingBottom = "6px";
+      secHeader.style.borderBottom = "1px solid var(--border-color)";
+      secHeader.style.color = colorClass;
+      secHeader.style.display = "flex";
+      secHeader.style.alignItems = "center";
+      secHeader.style.gap = "6px";
+      secHeader.innerHTML = `<span>${icon}</span> <span>${title} (${list.length} cảnh báo)</span>`;
+      DOM.warningListUi.appendChild(secHeader);
+
+      list.forEach(w => {
+        const item = document.createElement("div");
+        item.className = "warning-item-ui";
+        item.innerHTML = `
+          <div class="warning-item-desc">
+            Chi nhánh <b>${w.st}</b> lệch nhóm hàng <b>${w.category}</b> (Khả năng chưa tạo phiếu)
+          </div>
+          <span class="warning-qty-badge" style="background: ${colorClass}15; color: ${colorClass}; border: 1px solid ${colorClass}30;">Lệch ${w.diff.toLocaleString()}</span>
+        `;
+        DOM.warningListUi.appendChild(item);
+      });
+    };
+
+    appendSection("NHÓM HÀNG MEAT", "🥩", meatList, "var(--danger)");
+    appendSection("NHÓM HÀNG FROZEN", "❄️", frozenList, "var(--primary)");
+    appendSection("CÁC NHÓM KHÁC", "❓", otherList, "var(--text-secondary)");
   }
   
   // Draw charts
@@ -834,22 +887,69 @@ async function sendTelegramReport() {
   
   logToConsole("Đang gửi báo cáo qua Telegram Bot...");
   
-  let msg = `📊 *BÁO CÁO ĐỐI SOÁT XUẤT HÀNG*\n`;
-  msg += `\n🏢 Tổng siêu thị tham gia: *${STATE.stats.totalSt}*`;
-  msg += `\n🚨 Siêu thị thiếu phiếu: *${STATE.stats.mismatchedSt}*`;
+  let msg = `🔔 *BÁO CÁO ĐỐI SOÁT XUẤT HÀNG*\n`;
+  msg += `\n📊 Tổng siêu thị tham gia: *${STATE.stats.totalSt}*`;
   
   if (STATE.results.length === 0) {
     msg += `\n\n✅ *Tuyệt vời! 100% khớp số liệu.*`;
   } else {
-    msg += `\n\n⚠️ *CHI TIẾT CẢNH BÁO LỆCH PHIẾU:*`;
+    const meatWarnings = [];
+    const frozenWarnings = [];
+    const otherWarnings = [];
     
-    const displayWarnings = STATE.warnings.slice(0, 30);
-    displayWarnings.forEach(w => {
-      msg += `\n❌ ST *${w.st}* lệch hàng _${w.category}_ (Lệch: *${w.diff.toLocaleString()}*)`;
+    const meatStSet = new Set();
+    const frozenStSet = new Set();
+
+    STATE.warnings.forEach(w => {
+      const cat = (w.category || "").toLowerCase();
+      const itemStr = `\n• *${w.st}*: *${w.diff.toLocaleString()}*`;
+      
+      if (cat.includes("meat")) {
+        meatWarnings.push(itemStr);
+        meatStSet.add(w.st);
+      } else if (cat.includes("frozen")) {
+        frozenWarnings.push(itemStr);
+        frozenStSet.add(w.st);
+      } else {
+        otherWarnings.push(`\n• *${w.st}* (_${w.category}_): *${w.diff.toLocaleString()}*`);
+      }
     });
-    
-    if (STATE.warnings.length > 30) {
-      msg += `\n... và ${STATE.warnings.length - 30} siêu thị khác. Xem chi tiết trên dashboard.`;
+
+    msg += `\n🥩 Lệch hàng MEAT: *${meatStSet.size} CH*`;
+    msg += `\n❄️ Lệch hàng FROZEN: *${frozenStSet.size} CH*`;
+    msg += `\n-------------------------------------------------`;
+
+    if (meatWarnings.length > 0) {
+      msg += `\n\n🥩 *SIÊU THỊ LỆCH MEAT:*`;
+      const limit = 15;
+      for (let i = 0; i < Math.Min(meatWarnings.length, limit); i++) {
+        msg += meatWarnings[i];
+      }
+      if (meatWarnings.length > limit) {
+        msg += `\n... và ${meatWarnings.length - limit} CH khác.`;
+      }
+    }
+
+    if (frozenWarnings.length > 0) {
+      msg += `\n\n❄️ *SIÊU THỊ LỆCH FROZEN:*`;
+      const limit = 15;
+      for (let i = 0; i < Math.Min(frozenWarnings.length, limit); i++) {
+        msg += frozenWarnings[i];
+      }
+      if (frozenWarnings.length > limit) {
+        msg += `\n... và ${frozenWarnings.length - limit} CH khác.`;
+      }
+    }
+
+    if (otherWarnings.length > 0) {
+      msg += `\n\n❓ *LỆCH NHÓM KHÁC:*`;
+      const limit = 10;
+      for (let i = 0; i < Math.Min(otherWarnings.length, limit); i++) {
+        msg += otherWarnings[i];
+      }
+      if (otherWarnings.length > limit) {
+        msg += `\n... và ${otherWarnings.length - limit} CH khác.`;
+      }
     }
   }
   

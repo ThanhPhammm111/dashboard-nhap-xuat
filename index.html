@@ -121,14 +121,18 @@
       <div id="resultsDashboard" style="display: none; content-visibility: auto; flex-direction: column; gap: 24px; width: 100%;">
         
         <!-- KPI Grid -->
-        <div class="kpi-grid">
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
           <div class="card kpi-card kpi-total">
             <div class="kpi-label">Tổng Siêu Thị</div>
             <div class="kpi-value" id="kpiTotalSt">0</div>
           </div>
-          <div class="card kpi-card kpi-mismatch">
-            <div class="kpi-label">Siêu Thị Lệch</div>
-            <div class="kpi-value" id="kpiMismatchSt">0</div>
+          <div class="card kpi-card kpi-mismatch" style="border-left: 4px solid var(--danger);">
+            <div class="kpi-label">Lệch Hàng Meat</div>
+            <div class="kpi-value" id="kpiMismatchMeat" style="color: var(--danger);">0</div>
+          </div>
+          <div class="card kpi-card kpi-mismatch" style="border-left: 4px solid var(--primary);">
+            <div class="kpi-label">Lệch Hàng Frozen</div>
+            <div class="kpi-value" id="kpiMismatchFrozen" style="color: var(--primary);">0</div>
           </div>
           <div class="card kpi-card kpi-diff">
             <div class="kpi-label">Tổng Chênh Lệch Qty</div>
