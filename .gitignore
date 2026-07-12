@@ -7,6 +7,7 @@ Data/**/*.xlsx
 Ouput/*
 !Ouput/.gitkeep
 !Ouput/status.json
+!Ouput/Result.csv
 Archive/
 
 # OS files
