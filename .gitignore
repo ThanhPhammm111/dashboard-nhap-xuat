@@ -1,5 +1,9 @@
 # Excel/CSV files generated dynamically
 Data/**/*.csv
+Data/**/*.xlsx
+!Data/Data ST/DATA ST.xlsx
+!Data/KFM/KFM.xlsx
+!Data/ABA/ABA.xlsx
 Ouput/*
 !Ouput/.gitkeep
 Archive/

@@ -221,6 +221,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   checkReadyToRun();
   logToConsole("Hệ thống đã khởi động. Sẵn sàng nạp dữ liệu.");
+  autoLoadRepoData(); // Tự động nạp dữ liệu từ máy chủ
 });
 
 // Setup All Event Listeners
@@ -397,6 +398,59 @@ function checkReadyToRun() {
   }
   
   DOM.runReconcileBtn.disabled = !ready;
+}
+
+async function autoLoadRepoData() {
+  logToConsole("Đang kiểm tra dữ liệu đối soát mới nhất trên máy chủ...");
+  try {
+    const dataStUrl = "Data/Data ST/DATA ST.xlsx";
+    const kfmUrl = "Data/KFM/KFM.xlsx";
+    const abaUrl = "Data/ABA/ABA.xlsx";
+    
+    // Check if files are accessible
+    const [resSt, resKfm, resAba] = await Promise.all([
+      fetch(dataStUrl),
+      fetch(kfmUrl),
+      fetch(abaUrl)
+    ]);
+    
+    if (!resSt.ok || !resKfm.ok || !resAba.ok) {
+      logToConsole("Không tìm thấy dữ liệu tự động sẵn có trên máy chủ. Bạn có thể kéo thả file để chạy đối soát thủ công.");
+      return;
+    }
+    
+    logToConsole("Tìm thấy dữ liệu tự động. Đang tải và phân tích...");
+    
+    const [bufSt, bufKfm, bufAba] = await Promise.all([
+      resSt.arrayBuffer(),
+      resKfm.arrayBuffer(),
+      resAba.arrayBuffer()
+    ]);
+    
+    STATE.files.dataSt = { name: "DATA ST.xlsx", content: bufSt, loaded: true };
+    STATE.files.kfm = { name: "KFM.xlsx", content: bufKfm, loaded: true };
+    STATE.files.aba = { name: "ABA.xlsx", content: bufAba, loaded: true };
+    
+    // Update badge & styles in UI
+    ["dataSt", "kfm", "aba"].forEach(fileKey => {
+      const nameEl = document.getElementById(`name${fileKey.charAt(0).toUpperCase() + fileKey.slice(1)}`);
+      const badgeEl = document.getElementById(`badge${fileKey.charAt(0).toUpperCase() + fileKey.slice(1)}`);
+      if (nameEl && badgeEl) {
+        nameEl.innerText = fileKey === "dataSt" ? "DATA ST.xlsx" : (fileKey === "kfm" ? "KFM.xlsx" : "ABA.xlsx");
+        badgeEl.innerText = "Tự động nạp";
+        badgeEl.className = "status-badge loaded";
+      }
+    });
+    
+    logToConsole("Đã nạp tự động 3 file dữ liệu thành công. Đang chạy đối soát...");
+    checkReadyToRun();
+    
+    // Run reconciliation automatically
+    runReconcile();
+  } catch (err) {
+    logToConsole("Không thể tự động tải dữ liệu từ máy chủ. Bạn hãy kéo thả file thủ công.");
+    console.error("Auto load failed", err);
+  }
 }
 
 // 7. Execution Engine / Trigger Reconciliation

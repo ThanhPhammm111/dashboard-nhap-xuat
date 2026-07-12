@@ -71,9 +71,24 @@ popd
 
 if exist "%SCRIPT_DIR%ReconcileData.exe" (
     echo.
+    echo.
     echo Dang chay chuong trinh doi soat...
     "%SCRIPT_DIR%ReconcileData.exe" "%DATA_ST_CSV%" "%KFM_CSV%" "%ABA_CSV%" "%BASE_DIR%\Ouput\Result.csv" "%TELEGRAM_TOKEN%" "%TELEGRAM_CHATID%"
     
+    echo.
+    echo Dang cap nhat du lieu cho Dashboard online...
+    copy /y "%DATA_ST_EXCEL%" "%BASE_DIR%\Data\Data ST\DATA ST.xlsx" > nul
+    copy /y "%KFM_EXCEL%" "%BASE_DIR%\Data\KFM\KFM.xlsx" > nul
+    copy /y "%ABA_EXCEL%" "%BASE_DIR%\Data\ABA\ABA.xlsx" > nul
+
+    echo.
+    echo Dang day du lieu moi len GitHub...
+    pushd "%BASE_DIR%"
+    git add "Data/Data ST/DATA ST.xlsx" "Data/KFM/KFM.xlsx" "Data/ABA/ABA.xlsx"
+    git commit -m "Auto-update data files from Google Drive"
+    git push origin main
+    popd
+
     echo.
     echo Dang di chuyen cac file da xu ly vao thu muc Archive...
     for /f "delims=" %%D in ('powershell -Command "Get-Date -Format yyyy-MM-dd"') do set DATE_STAMP=%%D
