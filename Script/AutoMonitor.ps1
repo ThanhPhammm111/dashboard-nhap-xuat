@@ -1,53 +1,62 @@
-$folder = (Get-Item (Join-Path $PSScriptRoot "..\Data")).FullName
-$filter = "*.xlsx"
-
-# Initialize FileSystemWatcher for real-time monitoring
-$fsw = New-Object IO.FileSystemWatcher $folder, $filter -Property @{
-    IncludeSubdirectories = $true
-    EnableRaisingEvents = $true
-}
+$kfmPath = (Get-Item (Join-Path $PSScriptRoot "..\Data\KFM")).FullName
+$abaPath = (Get-Item (Join-Path $PSScriptRoot "..\Data\ABA")).FullName
+$batPath = (Get-Item (Join-Path $PSScriptRoot "RunReconcile.bat.bat")).FullName
 
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "  HE THONG THEO DOI TU DONG (REAL-TIME AUTO-MONITOR)" -ForegroundColor Green
-Write-Host "  Dang theo doi file Excel trong thu muc: $folder" -ForegroundColor Cyan
-Write-Host "  He thong se tu dong chay doi soat khi co file moi tai ve." -ForegroundColor Yellow
+Write-Host "  HE THONG THEO DOI TU DONG POLLING (REAL-TIME AUTO-MONITOR)" -ForegroundColor Green
+Write-Host "  Dang theo doi thu muc Data qua co che quet chu dong..." -ForegroundColor Cyan
+Write-Host "  He thong se tu dong chay doi soat khi co file moi duoc up vao." -ForegroundColor Yellow
 Write-Host "  Nhan Ctrl + C de dung theo doi." -ForegroundColor Red
 Write-Host "==========================================================" -ForegroundColor Green
 
-# Define event action when a file is created or changed
-$action = {
-    $path = $Event.SourceEventArgs.FullPath
-    $name = $Event.SourceEventArgs.Name
-    
-    # Avoid triggering on the temporary or target fixed files
-    if ($name -like "*DATA ST.xlsx" -or $name -like "*KFM.xlsx" -or $name -like "*ABA.xlsx" -or $name -like "~$*") {
-        return
+# Lay danh sach file kem thoi gian ghi cuoi cung
+function Get-FilesState {
+    $files = @{}
+    Get-ChildItem -Path $kfmPath, $abaPath -Filter "*.xlsx" -File -ErrorAction SilentlyContinue | ForEach-Object {
+        $name = $_.Name.ToLower()
+        if ($name -ne "kfm.xlsx" -and $name -ne "aba.xlsx" -and $name -notlike "*copy*") {
+            $files[$_.FullName] = $_.LastWriteTime.Ticks
+        }
     }
-    
-    Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Phat hien file moi/thay doi: $name" -ForegroundColor Green
-    Write-Host "Cho 3 giay de file hoan tat dong bo tu Google Drive..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 3
-    
-    # Run the reconciliation batch script
-    $batPath = (Get-Item (Join-Path $PSScriptRoot "RunReconcile.bat.bat")).FullName
-    Write-Host "Dang thuc hien doi soat, gui Telegram va cap nhat len Web..." -ForegroundColor Cyan
-    
-    # Run batch process synchronously
-    Start-Process cmd.exe -ArgumentList "/c `"$batPath`"" -NoNewWindow -Wait
-    Write-Host "Da hoan thanh xong phien doi soat tu dong!" -ForegroundColor Green
-    Write-Host "----------------------------------------------------------" -ForegroundColor Gray
+    return $files
 }
 
-# Register events
-$createdEvent = Register-ObjectEvent $fsw "Created" -Action $action
-$changedEvent = Register-ObjectEvent $fsw "Changed" -Action $action
+# Khoi tao trang thai ban dau
+$lastState = Get-FilesState
 
-try {
-    while ($true) {
-        Start-Sleep -Seconds 1
+while ($true) {
+    Start-Sleep -Seconds 3
+    $currentState = Get-FilesState
+    $hasNewOrChangedFile = $false
+    $changedFileName = ""
+
+    # Kiem tra xem co file moi hoac file bi ghi de khong
+    foreach ($file in $currentState.Keys) {
+        if (-not $lastState.ContainsKey($file)) {
+            $hasNewOrChangedFile = $true
+            $changedFileName = Split-Path $file -Leaf
+            break
+        } elseif ($currentState[$file] -gt $lastState[$file]) {
+            $hasNewOrChangedFile = $true
+            $changedFileName = Split-Path $file -Leaf
+            break
+        }
     }
-} finally {
-    # Clean up event registrations on exit
-    Unregister-Event -SourceIdentifier $createdEvent.Name -ErrorAction SilentlyContinue
-    Unregister-Event -SourceIdentifier $changedEvent.Name -ErrorAction SilentlyContinue
+
+    if ($hasNewOrChangedFile) {
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Phat hien file moi/thay doi: $changedFileName" -ForegroundColor Green
+        Write-Host "Cho 3 giay de file hoan tat dong bo..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 3
+        
+        Write-Host "Dang thuc hien doi soat, gui Telegram va cap nhat len Web..." -ForegroundColor Cyan
+        Start-Process cmd.exe -ArgumentList "/c `"$batPath`"" -NoNewWindow -Wait
+        Write-Host "Da hoan thanh xong phien doi soat tu dong!" -ForegroundColor Green
+        Write-Host "----------------------------------------------------------" -ForegroundColor Gray
+        
+        # Cap nhat lai trang thai sau khi chay de tranh lap vo han
+        $lastState = Get-FilesState
+    } else {
+        # Cap nhat lai trang thai ke ca khi co file bi xoa
+        $lastState = $currentState
+    }
 }
