@@ -558,7 +558,17 @@ async function loadSelectedResult(filename, totalSt) {
       });
       
       // Calculate warnings
-      const catInfo = category || loaiHang || "Khác";
+      let catInfo = category || loaiHang || "Khác";
+      catInfo = catInfo.trim();
+      const lowerCat = catInfo.toLowerCase();
+      if (lowerCat === "f" || lowerCat === "frozen") {
+        catInfo = "Frozen";
+      } else if (lowerCat === "m" || lowerCat === "meat") {
+        catInfo = "Meat";
+      } else if (catInfo.length > 0) {
+        catInfo = catInfo.charAt(0).toUpperCase() + catInfo.slice(1).toLowerCase();
+      }
+      
       const wKey = `${st}|${catInfo}`;
       warningDict[wKey] = (warningDict[wKey] || 0) + diff;
     }

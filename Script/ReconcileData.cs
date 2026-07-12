@@ -168,8 +168,8 @@ namespace ReconcileData
                         string product = row[abaColProduct].Trim();
                         string qtyStr = row[abaColQty].Trim().Replace(",", "");
                         string productName = (row.Length > abaColProductName) ? row[abaColProductName].Trim() : "";
-                        string category = (row.Length > abaColCategory) ? row[abaColCategory].Trim() : "";
-                        string loaiHang = (abaColLoaiHang != -1 && row.Length > abaColLoaiHang) ? row[abaColLoaiHang].Trim() : "";
+                        string category = (row.Length > abaColCategory) ? NormalizeCategory(row[abaColCategory]) : "";
+                        string loaiHang = (abaColLoaiHang != -1 && row.Length > abaColLoaiHang) ? NormalizeCategory(row[abaColLoaiHang]) : "";
 
                         string key = stCode + "_" + product;
 
@@ -1007,6 +1007,20 @@ namespace ReconcileData
                 return dateStr.Substring(0, 2) + "/" + dateStr.Substring(2, 2) + "/" + dateStr.Substring(4, 4);
             }
             return dateStr;
+        }
+
+        static string NormalizeCategory(string val)
+        {
+            if (string.IsNullOrEmpty(val)) return "";
+            string clean = val.Trim();
+            if (string.IsNullOrEmpty(clean)) return "";
+            
+            string lower = clean.ToLower();
+            if (lower == "f" || lower == "frozen") return "Frozen";
+            if (lower == "m" || lower == "meat") return "Meat";
+            
+            // Standard title casing for other categories
+            return char.ToUpper(lower[0]) + lower.Substring(1);
         }
 
         static void SendTelegramMessage(string botToken, string chatId, string message)
