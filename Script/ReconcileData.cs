@@ -838,7 +838,14 @@ namespace ReconcileData
                 
                 if (validFiles.Count > 0)
                 {
-                    return validFiles.OrderByDescending(f => File.GetLastWriteTime(f)).FirstOrDefault();
+                    return validFiles.OrderByDescending(f => {
+                        string dateStr = ExtractDate(f);
+                        if (!string.IsNullOrEmpty(dateStr))
+                        {
+                            return ParseDateStr(dateStr);
+                        }
+                        return DateTime.MinValue;
+                    }).ThenByDescending(f => File.GetLastWriteTime(f)).FirstOrDefault();
                 }
             }
             return "";
