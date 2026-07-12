@@ -8,6 +8,9 @@ Ouput/*
 !Ouput/.gitkeep
 !Ouput/status.json
 !Ouput/Result.csv
+!Ouput/Result_*.csv
+!Ouput/status_*.json
+!Ouput/history.json
 Archive/
 
 # OS files

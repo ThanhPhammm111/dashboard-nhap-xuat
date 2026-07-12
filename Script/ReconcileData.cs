@@ -258,6 +258,15 @@ namespace ReconcileData
 
                 WriteCsv(outFile, results);
                 
+                // Write daily Result_[date].csv
+                try {
+                    string dailyOutFile = Path.Combine(outDir, "Result_" + kfmDateStr + ".csv");
+                    WriteCsv(dailyOutFile, results);
+                    Console.WriteLine("Da ghi file ket qua theo ngay: " + Path.GetFileName(dailyOutFile));
+                } catch (Exception dailyEx) {
+                    Console.WriteLine("Loi khi ghi file ket qua theo ngay: " + dailyEx.Message);
+                }
+                
                 // Tao HTML Report
                 string htmlFile = Path.Combine(outDir, "BaoCao_CanhBao.html");
                 StringBuilder html = new StringBuilder();
@@ -623,18 +632,51 @@ namespace ReconcileData
                     try
                     {
                         string statusFile = Path.Combine(Path.GetDirectoryName(outFile), "status.json");
+                        string dailyStatusFile = Path.Combine(Path.GetDirectoryName(outFile), "status_" + kfmDateStr + ".json");
                         string json = string.Format(
-                            "{{\n  \"lastUpdated\": \"{0}\",\n  \"kfmFile\": \"{1}\",\n  \"kfmDate\": \"{2}\",\n  \"abaFile\": \"{3}\",\n  \"abaDate\": \"{4}\",\n  \"mismatchCount\": {5},\n  \"participatingStores\": {6}\n}}",
+                            "{{\n  \"lastUpdated\": \"{0}\",\n  \"kfmFile\": \"{1}\",\n  \"kfmDate\": \"{2}\",\n  \"abaFile\": \"{3}\",\n  \"abaDate\": \"{4}\",\n  \"mismatchCount\": {5},\n  \"participatingStores\": {6},\n  \"resultFile\": \"Result_{7}.csv\"\n}}",
                             DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                             Path.GetFileName(kfmFile).Replace("\\", "\\\\").Replace("\"", "\\\""),
                             FormatDate(kfmDateStr),
                             Path.GetFileName(abaFile).Replace("\\", "\\\\").Replace("\"", "\\\""),
                             FormatDate(abaDateStr),
                             stLechList.Count,
-                            allStSet.Count
+                            allStSet.Count,
+                            kfmDateStr
                         );
                         File.WriteAllText(statusFile, json, Encoding.UTF8);
-                        Console.WriteLine("Da ghi file status.json thanh cong!");
+                        File.WriteAllText(dailyStatusFile, json, Encoding.UTF8);
+                        Console.WriteLine("Da ghi file status va status theo ngay thanh cong!");
+
+                        // Generate/Update history.json dynamically
+                        try
+                        {
+                            var statusFiles = Directory.GetFiles(Path.GetDirectoryName(outFile), "status_*.json");
+                            var jsonList = new List<string>();
+                            // Order by date descending by extracting YYYYMMDD for comparison
+                            var sortedFiles = statusFiles.OrderByDescending(f => {
+                                string fn = Path.GetFileNameWithoutExtension(f);
+                                string[] parts = fn.Split('_');
+                                if (parts.Length > 1 && parts[1].Length == 8) {
+                                    string d = parts[1];
+                                    return d.Substring(4, 4) + d.Substring(2, 2) + d.Substring(0, 2);
+                                }
+                                return fn;
+                            });
+                            
+                            foreach (var f in sortedFiles)
+                            {
+                                jsonList.Add(File.ReadAllText(f));
+                            }
+                            string historyJson = "[\n" + string.Join(",\n", jsonList) + "\n]";
+                            string historyFile = Path.Combine(Path.GetDirectoryName(outFile), "history.json");
+                            File.WriteAllText(historyFile, historyJson, Encoding.UTF8);
+                            Console.WriteLine("Da cap nhat history.json thanh cong!");
+                        }
+                        catch (Exception histEx)
+                        {
+                            Console.WriteLine("Loi khi tao history.json: " + histEx.Message);
+                        }
                     }
                     catch (Exception statusEx)
                     {

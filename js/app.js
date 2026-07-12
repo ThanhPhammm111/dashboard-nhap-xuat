@@ -70,6 +70,7 @@ const DOM = {
   sheetStUrl: document.getElementById("sheetStUrl"),
   sheetKfmUrl: document.getElementById("sheetKfmUrl"),
   sheetAbaUrl: document.getElementById("sheetAbaUrl"),
+  filterDate: document.getElementById("filterDate"),
   
   // Control actions
   runReconcileBtn: document.getElementById("runReconcileBtn"),
@@ -278,6 +279,24 @@ function setupEventListeners() {
     STATE.table.currentPage = 1;
     updateTableView();
   });
+
+  if (DOM.filterDate) {
+    DOM.filterDate.addEventListener("change", (e) => {
+      const selectedIndex = e.target.selectedIndex;
+      if (selectedIndex < 0) return;
+      const option = e.target.options[selectedIndex];
+      const resultFile = option.value;
+      const totalSt = parseInt(option.getAttribute("data-totalst")) || 0;
+      
+      // Update sidebar status card metadata based on the selected run from history
+      document.getElementById("syncLastUpdated").innerText = option.getAttribute("data-lastupdated") || "N/A";
+      document.getElementById("syncReconcileDate").innerText = option.getAttribute("data-kfmdate") || "N/A";
+      document.getElementById("syncKfmFile").innerText = option.getAttribute("data-kfmfile") || "N/A";
+      document.getElementById("syncAbaFile").innerText = option.getAttribute("data-abafile") || "N/A";
+      
+      loadSelectedResult(resultFile, totalSt);
+    });
+  }
   
   DOM.exportCsvBtn.addEventListener("click", exportToCsv);
   
@@ -403,11 +422,57 @@ function checkReadyToRun() {
 }
 
 async function autoLoadRepoData() {
-  logToConsole("Đang kiểm tra dữ liệu đối soát mới nhất trên máy chủ...");
+  logToConsole("Đang kiểm tra lịch sử đối soát từ máy chủ...");
+  
+  // Try loading history.json
+  try {
+    const historyUrl = "Ouput/history.json";
+    const resHistory = await fetch(historyUrl);
+    
+    if (resHistory.ok) {
+      const history = await resHistory.json();
+      if (history && history.length > 0) {
+        logToConsole(`Đã tìm thấy lịch sử gồm ${history.length} phiên đối soát.`);
+        
+        // Populate DOM.filterDate dropdown
+        if (DOM.filterDate) {
+          DOM.filterDate.innerHTML = "";
+          history.forEach(run => {
+            const opt = document.createElement("option");
+            opt.value = run.resultFile || `Result_${run.kfmDate.replace(/\//g, "")}.csv`;
+            opt.text = `Ngày ${run.kfmDate}`;
+            opt.setAttribute("data-lastupdated", run.lastUpdated || "");
+            opt.setAttribute("data-kfmdate", run.kfmDate || "");
+            opt.setAttribute("data-kfmfile", run.kfmFile || "");
+            opt.setAttribute("data-abafile", run.abaFile || "");
+            opt.setAttribute("data-totalst", run.participatingStores || "0");
+            DOM.filterDate.appendChild(opt);
+          });
+          DOM.filterDate.style.display = "inline-block";
+        }
+        
+        // Load the latest run (first item)
+        const latestRun = history[0];
+        document.getElementById("syncLastUpdated").innerText = latestRun.lastUpdated || "N/A";
+        document.getElementById("syncReconcileDate").innerText = latestRun.kfmDate || "N/A";
+        document.getElementById("syncKfmFile").innerText = latestRun.kfmFile || "N/A";
+        document.getElementById("syncAbaFile").innerText = latestRun.abaFile || "N/A";
+        
+        const resultFile = latestRun.resultFile || `Result_${latestRun.kfmDate.replace(/\//g, "")}.csv`;
+        loadSelectedResult(resultFile, latestRun.participatingStores || 0);
+        return;
+      }
+    }
+  } catch (histErr) {
+    console.warn("Could not load history.json, falling back to status.json and Result.csv", histErr);
+  }
+
+  // Fallback if history.json is missing or empty
+  if (DOM.filterDate) {
+    DOM.filterDate.style.display = "none";
+  }
   
   let participatingStores = 0;
-  
-  // Load status metadata
   try {
     const statusUrl = "Ouput/status.json";
     const resStatus = await fetch(statusUrl);
@@ -419,26 +484,28 @@ async function autoLoadRepoData() {
       document.getElementById("syncAbaFile").innerText = status.abaFile || "N/A";
       participatingStores = status.participatingStores || 0;
       logToConsole(`Đã nạp trạng thái đồng bộ: Đối soát ngày ${status.kfmDate}.`);
-    } else {
-      document.getElementById("syncLastUpdated").innerText = "Chưa có dữ liệu";
-      document.getElementById("syncReconcileDate").innerText = "Chưa có dữ liệu";
-      document.getElementById("syncKfmFile").innerText = "Chưa có dữ liệu";
-      document.getElementById("syncAbaFile").innerText = "Chưa có dữ liệu";
     }
   } catch (statusErr) {
     console.error("Could not load status.json", statusErr);
   }
 
-  // Load and parse Result.csv directly
+  loadSelectedResult("Result.csv", participatingStores);
+}
+
+async function loadSelectedResult(filename, totalSt) {
   try {
-    logToConsole("Đang tải dữ liệu kết quả đối soát trực tiếp từ máy chủ...");
-    const resultUrl = "Ouput/Result.csv";
+    showProgress("Đang tải dữ liệu...", 20);
+    logToConsole(`Đang tải dữ liệu kết quả đối soát [${filename}] từ máy chủ...`);
+    
+    const resultUrl = `Ouput/${filename}`;
     const resResult = await fetch(resultUrl);
     if (!resResult.ok) {
-      logToConsole("Không tìm thấy kết quả đối soát trên máy chủ. Vui lòng chạy đối soát bằng Script trước.", "error");
+      logToConsole(`Không tìm thấy kết quả đối soát [${filename}] trên máy chủ.`, "error");
+      hideProgress();
       return;
     }
     
+    updateProgressBar(50, "Đang phân tích dữ liệu...");
     const csvText = await resResult.text();
     const rows = parseCsvText(csvText);
     
@@ -447,10 +514,11 @@ async function autoLoadRepoData() {
       STATE.results = [];
       STATE.warnings = [];
       STATE.stats = {
-        totalSt: participatingStores || 0,
+        totalSt: totalSt || 0,
         mismatchedSt: 0,
         mismatchedStList: []
       };
+      hideProgress();
       renderDashboard();
       return;
     }
@@ -507,16 +575,18 @@ async function autoLoadRepoData() {
     STATE.results = results;
     STATE.warnings = warnings;
     STATE.stats = {
-      totalSt: participatingStores || stLechSet.size,
+      totalSt: totalSt || stLechSet.size,
       mismatchedSt: stLechSet.size,
       mismatchedStList: Array.from(stLechSet).sort()
     };
     
-    logToConsole("Đã nạp và phân tích xong kết quả đối soát.", "success");
+    hideProgress();
+    logToConsole(`Đã nạp và hiển thị thành công báo cáo [${filename}].`, "success");
     renderDashboard();
   } catch (err) {
-    logToConsole(`Không thể tự động tải kết quả từ máy chủ: ${err.message}`, "error");
-    console.error("Auto load failed", err);
+    hideProgress();
+    logToConsole(`Lỗi khi tải kết quả: ${err.message}`, "error");
+    console.error("Load results failed", err);
   }
 }
 
