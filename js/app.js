@@ -909,14 +909,14 @@ function loadCachedSettings() {
   if (cachedSettings) {
     STATE.settings = JSON.parse(cachedSettings);
     
-    DOM.telegramToken.value = STATE.settings.telegramToken || "";
-    DOM.telegramChatId.value = STATE.settings.telegramChatId || "";
-    DOM.filterOutZeros.checked = STATE.settings.filterOutZeros !== false;
-    DOM.autoAlertTelegram.checked = STATE.settings.autoAlertTelegram === true;
+    if (DOM.telegramToken) DOM.telegramToken.value = STATE.settings.telegramToken || "";
+    if (DOM.telegramChatId) DOM.telegramChatId.value = STATE.settings.telegramChatId || "";
+    if (DOM.filterOutZeros) DOM.filterOutZeros.checked = STATE.settings.filterOutZeros !== false;
+    if (DOM.autoAlertTelegram) DOM.autoAlertTelegram.checked = STATE.settings.autoAlertTelegram === true;
   }
   
   const cachedSheets = localStorage.getItem("sheets_config");
-  if (cachedSheets) {
+  if (cachedSheets && DOM.sheetStUrl && DOM.sheetKfmUrl && DOM.sheetAbaUrl) {
     STATE.sheets = JSON.parse(cachedSheets);
     
     DOM.sheetStUrl.value = STATE.sheets.dataStUrl || "";
@@ -925,7 +925,7 @@ function loadCachedSettings() {
   }
   
   const lightMode = localStorage.getItem("light_mode") === "true";
-  if (lightMode) {
+  if (lightMode && DOM.sunIcon && DOM.moonIcon) {
     document.body.classList.add("light-mode");
     DOM.sunIcon.style.display = "block";
     DOM.moonIcon.style.display = "none";
