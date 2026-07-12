@@ -917,7 +917,7 @@ namespace ReconcileData
                 
                 var validFiles = files.Where(f => {
                     string name = Path.GetFileName(f).ToLower();
-                    return name != "kfm.xlsx" && name != "aba.xlsx" && !name.Contains("copy");
+                    return name != "kfm.xlsx" && name != "aba.xlsx" && !name.StartsWith("~$");
                 }).ToList();
                 
                 if (validFiles.Count > 0)

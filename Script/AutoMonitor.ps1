@@ -14,7 +14,7 @@ function Get-FilesState {
     $files = @{}
     Get-ChildItem -Path $kfmPath, $abaPath -Filter "*.xlsx" -File -ErrorAction SilentlyContinue | ForEach-Object {
         $name = $_.Name.ToLower()
-        if ($name -ne "kfm.xlsx" -and $name -ne "aba.xlsx" -and $name -notlike "*copy*") {
+        if ($name -ne "kfm.xlsx" -and $name -ne "aba.xlsx" -and $name -notlike "~$*") {
             $files[$_.FullName] = $_.LastWriteTime.Ticks
         }
     }
@@ -23,6 +23,11 @@ function Get-FilesState {
 
 # Khoi tao trang thai ban dau
 $lastState = Get-FilesState
+
+Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Dang thuc hien doi soat khoi dong phien lam viec..." -ForegroundColor Cyan
+Start-Process cmd.exe -ArgumentList "/c `"$batPath`"" -NoNewWindow -Wait
+Write-Host "Da hoan thanh doi soat khoi dong! Bat dau theo doi thay doi..." -ForegroundColor Green
+Write-Host "----------------------------------------------------------" -ForegroundColor Gray
 
 while ($true) {
     Start-Sleep -Seconds 3
