@@ -1,0 +1,15 @@
+# Excel/CSV files generated dynamically
+Data/**/*.csv
+Ouput/*
+!Ouput/.gitkeep
+Archive/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+.agents/
+.gemini/
