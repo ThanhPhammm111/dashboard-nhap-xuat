@@ -831,41 +831,15 @@ namespace ReconcileData
                 var files = Directory.GetFiles(path, pattern);
                 if (files.Length == 0) return "";
                 
-                string latestFile = null;
-                DateTime latestDate = DateTime.MinValue;
+                var validFiles = files.Where(f => {
+                    string name = Path.GetFileName(f).ToLower();
+                    return name != "kfm.xlsx" && name != "aba.xlsx" && !name.Contains("copy");
+                }).ToList();
                 
-                foreach (var file in files)
+                if (validFiles.Count > 0)
                 {
-                    string name = Path.GetFileName(file).ToLower();
-                    if (name == "kfm.xlsx" || name == "aba.xlsx" || name.Contains("copy"))
-                        continue;
-
-                    string dateStr = ExtractDate(file);
-                    if (!string.IsNullOrEmpty(dateStr))
-                    {
-                        DateTime fileDate = ParseDateStr(dateStr);
-                        if (fileDate > latestDate)
-                        {
-                            latestDate = fileDate;
-                            latestFile = file;
-                        }
-                    }
+                    return validFiles.OrderByDescending(f => File.GetLastWriteTime(f)).FirstOrDefault();
                 }
-                
-                if (latestFile == null)
-                {
-                    var validFiles = files.Where(f => {
-                        string name = Path.GetFileName(f).ToLower();
-                        return name != "kfm.xlsx" && name != "aba.xlsx" && !name.Contains("copy");
-                    }).ToList();
-                    
-                    if (validFiles.Count > 0)
-                    {
-                        latestFile = validFiles.OrderByDescending(f => File.GetLastWriteTime(f)).FirstOrDefault();
-                    }
-                }
-                
-                return latestFile;
             }
             return "";
         }
