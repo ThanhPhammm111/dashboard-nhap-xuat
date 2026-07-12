@@ -1,6 +1,13 @@
 // Antigravity Reconciliation Core Engine
 // Shared by both Web Worker (for background threads) and Main Thread (for file:// fallbacks)
 
+function normalizeCategory(cat) {
+    if (!cat) return "";
+    const trimmed = String(cat).trim();
+    if (!trimmed) return "";
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
 // Parse file content depending on extension (.xlsx, .xls, .csv, etc.)
 function parseFile(content, fileName) {
     const extension = fileName.split('.').pop().toLowerCase();
@@ -188,8 +195,8 @@ function processAba(rows, productNameMap) {
         const product = String(row[colProduct] || "").trim();
         const productName = String(row[colProductName] || "").trim();
         const qtyStr = String(row[colQty] || "").trim().replace(/,/g, "");
-        const category = colCategory !== -1 && row[colCategory] ? String(row[colCategory]).trim() : "";
-        const loaiHang = colLoaiHang !== -1 && row[colLoaiHang] ? String(row[colLoaiHang]).trim() : "";
+        const category = colCategory !== -1 && row[colCategory] ? normalizeCategory(row[colCategory]) : "";
+        const loaiHang = colLoaiHang !== -1 && row[colLoaiHang] ? normalizeCategory(row[colLoaiHang]) : "";
         
         if (!product) continue;
         
