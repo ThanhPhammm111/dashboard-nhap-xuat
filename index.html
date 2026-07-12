@@ -106,8 +106,17 @@
     <!-- Content / Results Area -->
     <div class="content-area">
       
-      <!-- Empty State / Welcome Screen -->
-      <div class="card" id="emptyState" style="flex: 1; display: flex;">
+      <!-- Tab Navigation -->
+      <div class="tabs-header" style="border-bottom: 2px solid var(--border-color); display: flex; gap: 8px; margin-bottom: 24px;">
+        <button class="tab-btn active" data-tab="tabReconcile" id="tabBtnReconcile" style="max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">🔄 Đối Soát Xuất Nhập</button>
+        <button class="tab-btn" data-tab="tabDropped" id="tabBtnDropped" style="max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">⚠️ Chi Tiết Rớt Hàng</button>
+      </div>
+
+      <!-- Tab Content: Reconciliation -->
+      <div id="tabReconcile" class="tab-content active" style="display: flex; flex-direction: column; gap: 24px; width: 100%;">
+
+        <!-- Empty State / Welcome Screen -->
+        <div class="card" id="emptyState" style="flex: 1; display: flex;">
         <div class="empty-state">
           <div class="empty-state-icon">📊</div>
           <h2 class="empty-state-title">Chưa Có Dữ Liệu Đối Soát</h2>
@@ -221,6 +230,79 @@
 
       </div>
 
+    </div> <!-- End tabReconcile -->
+
+    <!-- Tab Content: Dropped Details -->
+    <div id="tabDropped" class="tab-content" style="display: none; flex-direction: column; gap: 24px; width: 100%;">
+      <div class="card" id="droppedCard">
+        <div class="table-header-row" style="flex-direction: column; align-items: stretch; gap: 16px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <h3 class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+              <span>📋</span> Danh Sách Chi Tiết Rớt Hàng
+            </h3>
+            <button class="btn btn-secondary" id="droppedExportCsvBtn" disabled style="display: flex; align-items: center; gap: 6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Xuất Excel/CSV
+            </button>
+          </div>
+          
+          <!-- Config sheet row -->
+          <div id="droppedConfigRow" style="display: flex; gap: 10px; align-items: center; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px dashed var(--border-color); flex-wrap: wrap;">
+            <span style="font-size: 0.85rem; min-width: 130px; font-weight: 600; color: var(--text-secondary);">Link Google Sheet:</span>
+            <input type="text" class="form-control" id="droppedSheetUrl" placeholder="Dán link Google Sheet có chứa tab Chi tiết rớt hàng ở đây..." style="flex: 1; min-width: 250px; height: 38px; font-size: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); padding: 0 12px;">
+            <button class="btn btn-primary" id="btnConnectDropped" style="height: 38px; padding: 0 20px; font-size: 0.85rem; border-radius: 8px;">Kết Nối</button>
+          </div>
+          
+          <!-- Filters Row -->
+          <div class="table-filters" id="droppedFiltersRow" style="display: none; flex-wrap: wrap; gap: 12px; justify-content: flex-start; align-items: center; border-top: 1px solid var(--border-color); padding-top: 16px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">Từ:</span>
+              <input type="date" class="form-control table-filter-input" id="droppedFilterFromDate" style="width: 145px; font-size: 0.85rem; height: 38px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">Đến:</span>
+              <input type="date" class="form-control table-filter-input" id="droppedFilterToDate" style="width: 145px; font-size: 0.85rem; height: 38px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+            </div>
+            <select class="form-control table-filter-input" id="droppedFilterWeek" style="width: 190px; font-size: 0.85rem; height: 38px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-weight: 500;">
+              <option value="">Lọc theo tuần...</option>
+            </select>
+            <select class="form-control table-filter-input" id="droppedFilterMonth" style="width: 160px; font-size: 0.85rem; height: 38px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); font-weight: 500;">
+              <option value="">Lọc theo tháng...</option>
+            </select>
+            <input type="text" class="form-control table-filter-input" id="searchDroppedTable" placeholder="Tìm kiếm nhanh..." style="width: 180px; font-size: 0.85rem; height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);">
+            <button class="btn btn-secondary" id="btnResetDroppedFilters" style="height: 38px; font-size: 0.85rem; padding: 0 16px; border-radius: 8px;">Xóa Lọc</button>
+          </div>
+        </div>
+
+        <!-- Loading spinner for dropped data -->
+        <div id="droppedLoader" style="display: none; text-align: center; padding: 50px 0;">
+          <div class="dropped-spinner" style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--border-color); border-top-color: var(--primary); border-radius: 50%; animation: droppedSpin 1s linear infinite;"></div>
+          <p style="margin-top: 16px; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500;">Đang tải dữ liệu từ Google Sheets...</p>
+        </div>
+
+        <!-- Table Wrapper -->
+        <div class="table-wrapper" id="droppedTableWrapper" style="display: none; margin-top: 16px; overflow-x: auto;">
+          <table id="droppedTable" style="width: 100%; border-collapse: collapse;">
+            <thead id="droppedTableHead">
+              <!-- Loaded dynamically -->
+            </thead>
+            <tbody id="droppedTableBody">
+              <!-- Loaded dynamically -->
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="pagination" id="droppedPagination" style="display: none; margin-top: 20px; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div id="droppedPaginationInfo" style="font-size: 0.85rem; color: var(--text-secondary);">Đang hiển thị 0 - 0 của 0 kết quả</div>
+          <div class="pagination-controls" style="display: flex; gap: 8px;">
+            <button class="page-btn" id="droppedPrevPageBtn" disabled style="padding: 6px 12px; font-size: 0.85rem; font-weight: 600; border-radius: 6px; cursor: pointer; transition: var(--transition-smooth); border: 1px solid var(--border-color); background: transparent; color: var(--text-primary);">Trước</button>
+            <button class="page-btn" id="droppedNextPageBtn" disabled style="padding: 6px 12px; font-size: 0.85rem; font-weight: 600; border-radius: 6px; cursor: pointer; transition: var(--transition-smooth); border: 1px solid var(--border-color); background: transparent; color: var(--text-primary);">Sau</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     </div>
   </main>
 
@@ -268,6 +350,10 @@
         <h4 style="margin-bottom: 12px; font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
           Tùy chọn Logic Đối Soát
         </h4>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label for="settingsDroppedSheetUrl">Link Google Sheet (Chi Tiết Rớt Hàng)</label>
+          <input type="text" class="form-control" id="settingsDroppedSheetUrl" placeholder="Dán link Google Sheet có chứa tab Chi tiết rớt hàng ở đây...">
+        </div>
         <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
           <input type="checkbox" id="filterOutZeros" checked style="width: 16px; height: 16px; cursor: pointer;">
           <label for="filterOutZeros" style="margin-bottom: 0; cursor: pointer;">Ẩn các dòng khớp hoàn toàn (Chênh lệch = 0)</label>

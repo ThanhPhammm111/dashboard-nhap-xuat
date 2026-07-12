@@ -3,6 +3,7 @@
 // 1. Application State
 const STATE = {
   activeTab: "localFilesTab",
+  activeMainTab: "tabReconcile", // tabReconcile or tabDropped
   files: {
     dataSt: { name: "", content: null, loaded: false },
     kfm: { name: "", content: null, loaded: false },
@@ -17,7 +18,8 @@ const STATE = {
     telegramToken: "",
     telegramChatId: "",
     filterOutZeros: true,
-    autoAlertTelegram: false
+    autoAlertTelegram: false,
+    droppedSheetUrl: ""
   },
   results: [],
   warnings: [],
@@ -33,6 +35,30 @@ const STATE = {
     pageSize: 15
   },
   
+  // Dropped details state
+  dropped: {
+    rawUrl: "",
+    data: [], // Array of row arrays/objects
+    headers: [],
+    dateColIndex: -1,
+    filteredData: [],
+    weeks: [],
+    months: [],
+    filters: {
+      fromDate: "",
+      toDate: "",
+      week: "",
+      month: "",
+      search: ""
+    },
+    table: {
+      currentPage: 1,
+      pageSize: 15,
+      sortBy: "",
+      sortOrder: "asc"
+    }
+  },
+  
   // Chart Instances
   charts: {
     store: null,
@@ -46,7 +72,13 @@ const DOM = {
   sunIcon: document.getElementById("sunIcon"),
   moonIcon: document.getElementById("moonIcon"),
   
-  // Tabs
+  // Tabs Navigation
+  tabBtnReconcile: document.getElementById("tabBtnReconcile"),
+  tabBtnDropped: document.getElementById("tabBtnDropped"),
+  tabReconcile: document.getElementById("tabReconcile"),
+  tabDropped: document.getElementById("tabDropped"),
+  
+  // Tabs (legacy settings panel tabs)
   tabButtons: document.querySelectorAll(".tab-btn"),
   tabContents: document.querySelectorAll(".tab-content"),
   
@@ -71,6 +103,28 @@ const DOM = {
   sheetKfmUrl: document.getElementById("sheetKfmUrl"),
   sheetAbaUrl: document.getElementById("sheetAbaUrl"),
   filterDate: document.getElementById("filterDate"),
+  
+  // Dropped details components
+  droppedSheetUrl: document.getElementById("droppedSheetUrl"),
+  btnConnectDropped: document.getElementById("btnConnectDropped"),
+  droppedConfigRow: document.getElementById("droppedConfigRow"),
+  droppedFiltersRow: document.getElementById("droppedFiltersRow"),
+  droppedFilterFromDate: document.getElementById("droppedFilterFromDate"),
+  droppedFilterToDate: document.getElementById("droppedFilterToDate"),
+  droppedFilterWeek: document.getElementById("droppedFilterWeek"),
+  droppedFilterMonth: document.getElementById("droppedFilterMonth"),
+  searchDroppedTable: document.getElementById("searchDroppedTable"),
+  btnResetDroppedFilters: document.getElementById("btnResetDroppedFilters"),
+  droppedExportCsvBtn: document.getElementById("droppedExportCsvBtn"),
+  droppedLoader: document.getElementById("droppedLoader"),
+  droppedTableWrapper: document.getElementById("droppedTableWrapper"),
+  droppedTableHead: document.getElementById("droppedTableHead"),
+  droppedTableBody: document.getElementById("droppedTableBody"),
+  droppedPagination: document.getElementById("droppedPagination"),
+  droppedPaginationInfo: document.getElementById("droppedPaginationInfo"),
+  droppedPrevPageBtn: document.getElementById("droppedPrevPageBtn"),
+  droppedNextPageBtn: document.getElementById("droppedNextPageBtn"),
+  settingsDroppedSheetUrl: document.getElementById("settingsDroppedSheetUrl"),
   
   // Control actions
   runReconcileBtn: document.getElementById("runReconcileBtn"),
@@ -220,6 +274,7 @@ window.addEventListener("DOMContentLoaded", () => {
   loadCachedSettings();
   initWorker();
   setupEventListeners();
+  initDroppedDetails();
   checkReadyToRun();
   logToConsole("Hệ thống đã khởi động. Sẵn sàng nạp dữ liệu.");
   autoLoadRepoData(); // Tự động nạp dữ liệu từ máy chủ
@@ -354,6 +409,28 @@ function setupEventListeners() {
   
   // Test Telegram button
   DOM.testTelegramBtn.addEventListener("click", testTelegram);
+  
+  // Main Tab Navigation
+  if (DOM.tabBtnReconcile && DOM.tabBtnDropped) {
+    DOM.tabBtnReconcile.addEventListener("click", () => {
+      DOM.tabBtnReconcile.classList.add("active");
+      DOM.tabBtnDropped.classList.remove("active");
+      DOM.tabReconcile.style.display = "flex";
+      DOM.tabDropped.style.display = "none";
+      STATE.activeMainTab = "tabReconcile";
+    });
+    DOM.tabBtnDropped.addEventListener("click", () => {
+      DOM.tabBtnDropped.classList.add("active");
+      DOM.tabBtnReconcile.classList.remove("active");
+      DOM.tabDropped.style.display = "flex";
+      DOM.tabReconcile.style.display = "none";
+      STATE.activeMainTab = "tabDropped";
+      // Auto-load if url is set and data not loaded
+      if (STATE.settings.droppedSheetUrl && STATE.dropped.data.length === 0) {
+        fetchDroppedDetailsData(STATE.settings.droppedSheetUrl);
+      }
+    });
+  }
 }
 
 // 5. Drag and Drop File Handlers
@@ -1136,6 +1213,8 @@ function loadCachedSettings() {
     if (DOM.telegramChatId) DOM.telegramChatId.value = STATE.settings.telegramChatId || "";
     if (DOM.filterOutZeros) DOM.filterOutZeros.checked = STATE.settings.filterOutZeros !== false;
     if (DOM.autoAlertTelegram) DOM.autoAlertTelegram.checked = STATE.settings.autoAlertTelegram === true;
+    if (DOM.settingsDroppedSheetUrl) DOM.settingsDroppedSheetUrl.value = STATE.settings.droppedSheetUrl || "";
+    if (DOM.droppedSheetUrl) DOM.droppedSheetUrl.value = STATE.settings.droppedSheetUrl || "";
   }
   
   const cachedSheets = localStorage.getItem("sheets_config");
@@ -1160,10 +1239,18 @@ function saveSettings() {
   STATE.settings.telegramChatId = DOM.telegramChatId.value.trim();
   STATE.settings.filterOutZeros = DOM.filterOutZeros.checked;
   STATE.settings.autoAlertTelegram = DOM.autoAlertTelegram.checked;
+  if (DOM.settingsDroppedSheetUrl) {
+    STATE.settings.droppedSheetUrl = DOM.settingsDroppedSheetUrl.value.trim();
+    if (DOM.droppedSheetUrl) DOM.droppedSheetUrl.value = STATE.settings.droppedSheetUrl;
+  }
   
   localStorage.setItem("reconcile_settings", JSON.stringify(STATE.settings));
   DOM.settingsModal.classList.remove("active");
   logToConsole("Đã cập nhật cấu hình hệ thống.", "success");
+  
+  if (STATE.settings.droppedSheetUrl && STATE.dropped.data.length === 0) {
+    fetchDroppedDetailsData(STATE.settings.droppedSheetUrl);
+  }
 }
 
 // 13. Progress indicators
@@ -1212,4 +1299,545 @@ function toggleTheme() {
     drawStoreChart();
     drawCategoryChart();
   }
+}
+
+// 14. Dropped Details Tab Features
+function initDroppedDetails() {
+  if (DOM.btnConnectDropped && DOM.droppedSheetUrl) {
+    DOM.btnConnectDropped.addEventListener("click", () => {
+      const url = DOM.droppedSheetUrl.value.trim();
+      if (!url) {
+        alert("Vui lòng dán liên kết Google Sheet trước.");
+        return;
+      }
+      STATE.settings.droppedSheetUrl = url;
+      if (DOM.settingsDroppedSheetUrl) DOM.settingsDroppedSheetUrl.value = url;
+      localStorage.setItem("reconcile_settings", JSON.stringify(STATE.settings));
+      fetchDroppedDetailsData(url);
+    });
+  }
+
+  // Filters listeners
+  if (DOM.droppedFilterFromDate) {
+    DOM.droppedFilterFromDate.addEventListener("change", () => {
+      STATE.dropped.filters.fromDate = DOM.droppedFilterFromDate.value;
+      STATE.dropped.filters.week = "";
+      STATE.dropped.filters.month = "";
+      if (DOM.droppedFilterWeek) DOM.droppedFilterWeek.value = "";
+      if (DOM.droppedFilterMonth) DOM.droppedFilterMonth.value = "";
+      STATE.dropped.table.currentPage = 1;
+      applyDroppedFilters();
+    });
+  }
+  if (DOM.droppedFilterToDate) {
+    DOM.droppedFilterToDate.addEventListener("change", () => {
+      STATE.dropped.filters.toDate = DOM.droppedFilterToDate.value;
+      STATE.dropped.filters.week = "";
+      STATE.dropped.filters.month = "";
+      if (DOM.droppedFilterWeek) DOM.droppedFilterWeek.value = "";
+      if (DOM.droppedFilterMonth) DOM.droppedFilterMonth.value = "";
+      STATE.dropped.table.currentPage = 1;
+      applyDroppedFilters();
+    });
+  }
+  if (DOM.droppedFilterWeek) {
+    DOM.droppedFilterWeek.addEventListener("change", (e) => {
+      STATE.dropped.filters.week = e.target.value;
+      STATE.dropped.filters.fromDate = "";
+      STATE.dropped.filters.toDate = "";
+      STATE.dropped.filters.month = "";
+      if (DOM.droppedFilterFromDate) DOM.droppedFilterFromDate.value = "";
+      if (DOM.droppedFilterToDate) DOM.droppedFilterToDate.value = "";
+      if (DOM.droppedFilterMonth) DOM.droppedFilterMonth.value = "";
+      STATE.dropped.table.currentPage = 1;
+      applyDroppedFilters();
+    });
+  }
+  if (DOM.droppedFilterMonth) {
+    DOM.droppedFilterMonth.addEventListener("change", (e) => {
+      STATE.dropped.filters.month = e.target.value;
+      STATE.dropped.filters.fromDate = "";
+      STATE.dropped.filters.toDate = "";
+      STATE.dropped.filters.week = "";
+      if (DOM.droppedFilterFromDate) DOM.droppedFilterFromDate.value = "";
+      if (DOM.droppedFilterToDate) DOM.droppedFilterToDate.value = "";
+      if (DOM.droppedFilterWeek) DOM.droppedFilterWeek.value = "";
+      STATE.dropped.table.currentPage = 1;
+      applyDroppedFilters();
+    });
+  }
+  if (DOM.searchDroppedTable) {
+    DOM.searchDroppedTable.addEventListener("input", (e) => {
+      STATE.dropped.filters.search = e.target.value;
+      STATE.dropped.table.currentPage = 1;
+      applyDroppedFilters();
+    });
+  }
+  if (DOM.btnResetDroppedFilters) {
+    DOM.btnResetDroppedFilters.addEventListener("click", () => {
+      STATE.dropped.filters.fromDate = "";
+      STATE.dropped.filters.toDate = "";
+      STATE.dropped.filters.week = "";
+      STATE.dropped.filters.month = "";
+      STATE.dropped.filters.search = "";
+      
+      if (DOM.droppedFilterFromDate) DOM.droppedFilterFromDate.value = "";
+      if (DOM.droppedFilterToDate) DOM.droppedFilterToDate.value = "";
+      if (DOM.droppedFilterWeek) DOM.droppedFilterWeek.value = "";
+      if (DOM.droppedFilterMonth) DOM.droppedFilterMonth.value = "";
+      if (DOM.searchDroppedTable) DOM.searchDroppedTable.value = "";
+      
+      STATE.dropped.table.currentPage = 1;
+      applyDroppedFilters();
+    });
+  }
+  if (DOM.droppedExportCsvBtn) {
+    DOM.droppedExportCsvBtn.addEventListener("click", exportDroppedDetailsToCsv);
+  }
+
+  // Pagination buttons
+  if (DOM.droppedPrevPageBtn) {
+    DOM.droppedPrevPageBtn.addEventListener("click", () => {
+      if (STATE.dropped.table.currentPage > 1) {
+        STATE.dropped.table.currentPage--;
+        renderDroppedTable();
+      }
+    });
+  }
+  if (DOM.droppedNextPageBtn) {
+    DOM.droppedNextPageBtn.addEventListener("click", () => {
+      const maxPage = Math.ceil(STATE.dropped.filteredData.length / STATE.dropped.table.pageSize);
+      if (STATE.dropped.table.currentPage < maxPage) {
+        STATE.dropped.table.currentPage++;
+        renderDroppedTable();
+      }
+    });
+  }
+}
+
+async function fetchDroppedDetailsData(url) {
+  if (!url) return;
+  
+  if (DOM.droppedLoader) DOM.droppedLoader.style.display = "block";
+  if (DOM.droppedTableWrapper) DOM.droppedTableWrapper.style.display = "none";
+  if (DOM.droppedPagination) DOM.droppedPagination.style.display = "none";
+  if (DOM.droppedFiltersRow) DOM.droppedFiltersRow.style.display = "none";
+  if (DOM.droppedExportCsvBtn) DOM.droppedExportCsvBtn.disabled = true;
+
+  try {
+    logToConsole("Đang tải dữ liệu Chi Tiết Rớt Hàng từ Google Sheets...");
+    
+    const csvUrl = convertSheetsUrlToCsv(url, "1774727011");
+    const response = await fetch(csvUrl);
+    if (!response.ok) {
+      throw new Error(`Lỗi kết nối HTTP: ${response.status}`);
+    }
+    
+    const text = await response.text();
+    const rows = parseCsvText(text);
+    
+    if (rows.length === 0) {
+      throw new Error("Không có dữ liệu hoặc lỗi cấu trúc sheet.");
+    }
+    
+    STATE.dropped.headers = rows[0];
+    STATE.dropped.data = rows.slice(1).filter(r => r.some(cell => String(cell).trim() !== ""));
+    
+    STATE.dropped.dateColIndex = findDateColumnIndex(STATE.dropped.headers);
+    
+    buildWeekAndMonthFilters();
+    populateDroppedFiltersDropdowns();
+    
+    // Reset table sort
+    STATE.dropped.table.sortBy = "";
+    STATE.dropped.table.currentPage = 1;
+    
+    applyDroppedFilters();
+    
+    if (DOM.droppedFiltersRow) DOM.droppedFiltersRow.style.display = "flex";
+    if (DOM.droppedExportCsvBtn) DOM.droppedExportCsvBtn.disabled = false;
+    if (DOM.droppedConfigRow) DOM.droppedConfigRow.style.borderStyle = "solid";
+    
+    logToConsole(`Đã tải thành công ${STATE.dropped.data.length} dòng dữ liệu rớt hàng.`, "success");
+  } catch (err) {
+    console.error("Fetch dropped details failed", err);
+    logToConsole(`Lỗi khi tải dữ liệu rớt hàng: ${err.message}`, "error");
+    alert(`Lỗi tải dữ liệu rớt hàng: ${err.message}\nVui lòng chắc chắn rằng liên kết Google Sheet chính xác và đã được cấu hình chia sẻ công khai "Anyone with link can view".`);
+  } finally {
+    if (DOM.droppedLoader) DOM.droppedLoader.style.display = "none";
+  }
+}
+
+function findDateColumnIndex(headers) {
+  const keywords = ["ngày", "ngay", "date", "thời gian", "thoi gian"];
+  for (let i = 0; i < headers.length; i++) {
+    const h = String(headers[i]).toLowerCase();
+    for (const kw of keywords) {
+      if (h.includes(kw)) {
+        return i;
+      }
+    }
+  }
+  
+  // Dynamic fallback check
+  for (let col = 0; col < headers.length; col++) {
+    for (let row = 0; row < Math.min(STATE.dropped.data.length, 5); row++) {
+      const cell = STATE.dropped.data[row][col];
+      if (parseDateString(cell)) {
+        return col;
+      }
+    }
+  }
+  return -1;
+}
+
+function parseDateString(str) {
+  if (!str) return null;
+  str = String(str).trim();
+  
+  // DD/MM/YYYY or DD-MM-YYYY
+  let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) {
+    return new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
+  }
+  
+  // YYYY-MM-DD
+  m = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (m) {
+    return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+  }
+  
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+}
+
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return { year: d.getUTCFullYear(), week: weekNo };
+}
+
+function getWeekRangeDisplay(year, weekNo) {
+  const jan1 = new Date(year, 0, 1);
+  const daysOffset = (jan1.getDay() || 7) - 1;
+  const firstMonday = new Date(year, 0, 1 + (daysOffset <= 3 ? -daysOffset : 7 - daysOffset));
+  
+  const monday = new Date(firstMonday.getTime() + (weekNo - 1) * 7 * 24 * 60 * 60 * 1000);
+  const sunday = new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000);
+  
+  const fmt = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  return `Tuần ${String(weekNo).padStart(2, '0')} (${fmt(monday)} - ${fmt(sunday)})`;
+}
+
+function buildWeekAndMonthFilters() {
+  const dateCol = STATE.dropped.dateColIndex;
+  if (dateCol === -1) {
+    STATE.dropped.weeks = [];
+    STATE.dropped.months = [];
+    return;
+  }
+
+  const weeksMap = new Map();
+  const monthsMap = new Map();
+
+  STATE.dropped.data.forEach(row => {
+    const val = row[dateCol];
+    const date = parseDateString(val);
+    if (date) {
+      const y = date.getFullYear();
+      const m = date.getMonth();
+      const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`;
+      monthsMap.set(monthKey, { year: y, month: m + 1 });
+      
+      const wk = getWeekNumber(date);
+      const weekKey = `${wk.year}-${String(wk.week).padStart(2, '0')}`;
+      weeksMap.set(weekKey, wk);
+    }
+  });
+
+  STATE.dropped.weeks = Array.from(weeksMap.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(entry => ({
+      key: entry[0],
+      display: getWeekRangeDisplay(entry[1].year, entry[1].week)
+    }));
+
+  STATE.dropped.months = Array.from(monthsMap.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(entry => ({
+      key: entry[0],
+      display: `Tháng ${entry[1].month}/${entry[1].year}`
+    }));
+}
+
+function populateDroppedFiltersDropdowns() {
+  if (DOM.droppedFilterWeek) {
+    DOM.droppedFilterWeek.innerHTML = '<option value="">Lọc theo tuần...</option>';
+    STATE.dropped.weeks.forEach(wk => {
+      const opt = document.createElement("option");
+      opt.value = wk.key;
+      opt.text = wk.display;
+      DOM.droppedFilterWeek.appendChild(opt);
+    });
+  }
+
+  if (DOM.droppedFilterMonth) {
+    DOM.droppedFilterMonth.innerHTML = '<option value="">Lọc theo tháng...</option>';
+    STATE.dropped.months.forEach(mo => {
+      const opt = document.createElement("option");
+      opt.value = mo.key;
+      opt.text = mo.display;
+      DOM.droppedFilterMonth.appendChild(opt);
+    });
+  }
+}
+
+function applyDroppedFilters() {
+  const { fromDate, toDate, week, month, search } = STATE.dropped.filters;
+  const dateCol = STATE.dropped.dateColIndex;
+  
+  let filtered = [...STATE.dropped.data];
+
+  // 1. Date Range
+  if (dateCol !== -1 && (fromDate || toDate)) {
+    const start = fromDate ? new Date(fromDate) : null;
+    if (start) start.setHours(0, 0, 0, 0);
+    const end = toDate ? new Date(toDate) : null;
+    if (end) end.setHours(23, 59, 59, 999);
+    
+    filtered = filtered.filter(row => {
+      const date = parseDateString(row[dateCol]);
+      if (!date) return false;
+      if (start && date < start) return false;
+      if (end && date > end) return false;
+      return true;
+    });
+  }
+
+  // 2. Week
+  if (dateCol !== -1 && week) {
+    const [wYear, wWeek] = week.split("-").map(Number);
+    filtered = filtered.filter(row => {
+      const date = parseDateString(row[dateCol]);
+      if (!date) return false;
+      const wk = getWeekNumber(date);
+      return wk.year === wYear && wk.week === wWeek;
+    });
+  }
+
+  // 3. Month
+  if (dateCol !== -1 && month) {
+    const [mYear, mMonth] = month.split("-").map(Number);
+    filtered = filtered.filter(row => {
+      const date = parseDateString(row[dateCol]);
+      if (!date) return false;
+      return date.getFullYear() === mYear && (date.getMonth() + 1) === mMonth;
+    });
+  }
+
+  // 4. Search
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter(row => {
+      return row.some(cell => String(cell).toLowerCase().includes(q));
+    });
+  }
+
+  // 5. Sort
+  const { sortBy, sortOrder } = STATE.dropped.table;
+  if (sortBy !== "") {
+    const colIndex = STATE.dropped.headers.indexOf(sortBy);
+    if (colIndex !== -1) {
+      const isAsc = sortOrder === "asc";
+      
+      let numericCount = 0;
+      let nonBlankCount = 0;
+      for (let i = 0; i < Math.min(filtered.length, 50); i++) {
+        const val = String(filtered[i][colIndex]).trim().replace(/,/g, "");
+        if (val) {
+          nonBlankCount++;
+          if (!isNaN(Number(val))) {
+            numericCount++;
+          }
+        }
+      }
+      const isNumeric = nonBlankCount > 0 && (numericCount / nonBlankCount > 0.8);
+      
+      filtered.sort((a, b) => {
+        let valA = String(a[colIndex] || "").trim();
+        let valB = String(b[colIndex] || "").trim();
+        
+        if (isNumeric) {
+          const numA = parseFloat(valA.replace(/,/g, "")) || 0;
+          const numB = parseFloat(valB.replace(/,/g, "")) || 0;
+          return isAsc ? numA - numB : numB - numA;
+        } else {
+          if (colIndex === dateCol) {
+            const dateA = parseDateString(valA) || new Date(0);
+            const dateB = parseDateString(valB) || new Date(0);
+            return isAsc ? dateA - dateB : dateB - dateA;
+          }
+          return isAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+      });
+    }
+  }
+
+  STATE.dropped.filteredData = filtered;
+  renderDroppedTable();
+}
+
+function setDroppedSort(columnName) {
+  const currentSort = STATE.dropped.table.sortBy;
+  const currentOrder = STATE.dropped.table.sortOrder;
+  
+  if (currentSort === columnName) {
+    STATE.dropped.table.sortOrder = currentOrder === "asc" ? "desc" : "asc";
+  } else {
+    STATE.dropped.table.sortBy = columnName;
+    STATE.dropped.table.sortOrder = "asc";
+  }
+  
+  applyDroppedFilters();
+}
+
+function renderDroppedTable() {
+  const headers = STATE.dropped.headers;
+  const filtered = STATE.dropped.filteredData;
+  const { currentPage, pageSize, sortBy, sortOrder } = STATE.dropped.table;
+
+  // Header Render
+  if (DOM.droppedTableHead) {
+    DOM.droppedTableHead.innerHTML = "";
+    const tr = document.createElement("tr");
+    
+    headers.forEach(h => {
+      const th = document.createElement("th");
+      th.style.cursor = "pointer";
+      th.style.userSelect = "none";
+      
+      let suffix = " ↕";
+      if (sortBy === h) {
+        suffix = sortOrder === "asc" ? " ▲" : " ▼";
+        th.style.color = "var(--primary)";
+      }
+      
+      th.innerText = h + suffix;
+      th.addEventListener("click", () => setDroppedSort(h));
+      tr.appendChild(th);
+    });
+    DOM.droppedTableHead.appendChild(tr);
+  }
+
+  // Body Render
+  if (DOM.droppedTableBody) {
+    DOM.droppedTableBody.innerHTML = "";
+    
+    if (filtered.length === 0) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = headers.length || 1;
+      td.style.textAlign = "center";
+      td.style.padding = "30px";
+      td.style.color = "var(--text-muted)";
+      td.innerText = "Không tìm thấy kết quả nào phù hợp.";
+      tr.appendChild(td);
+      DOM.droppedTableBody.appendChild(tr);
+    } else {
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = Math.min(startIndex + pageSize, filtered.length);
+      const pageData = filtered.slice(startIndex, endIndex);
+      
+      const colAlignments = headers.map((_, colIndex) => {
+        let numericCount = 0;
+        let nonBlankCount = 0;
+        for (let i = 0; i < Math.min(filtered.length, 30); i++) {
+          const val = String(filtered[i][colIndex]).trim().replace(/,/g, "");
+          if (val) {
+            nonBlankCount++;
+            if (!isNaN(Number(val))) numericCount++;
+          }
+        }
+        return (nonBlankCount > 0 && numericCount / nonBlankCount > 0.8) ? "right" : "left";
+      });
+
+      pageData.forEach(row => {
+        const tr = document.createElement("tr");
+        headers.forEach((_, colIndex) => {
+          const td = document.createElement("td");
+          const val = row[colIndex] !== undefined ? String(row[colIndex]).trim() : "";
+          
+          if (colAlignments[colIndex] === "right") {
+            td.style.textAlign = "right";
+            const num = Number(val.replace(/,/g, ""));
+            if (!isNaN(num)) {
+              td.innerText = num.toLocaleString();
+            } else {
+              td.innerText = val;
+            }
+          } else {
+            td.style.textAlign = "left";
+            td.innerText = val;
+          }
+          
+          tr.appendChild(td);
+        });
+        DOM.droppedTableBody.appendChild(tr);
+      });
+      
+      if (DOM.droppedPaginationInfo) {
+        DOM.droppedPaginationInfo.innerText = `Đang hiển thị ${startIndex + 1} - ${endIndex} của ${filtered.length} kết quả`;
+      }
+    }
+  }
+
+  // Update Pagination Controls
+  if (DOM.droppedPagination) {
+    if (filtered.length > 0) {
+      DOM.droppedPagination.style.display = "flex";
+      if (DOM.droppedPrevPageBtn) DOM.droppedPrevPageBtn.disabled = currentPage === 1;
+      if (DOM.droppedNextPageBtn) {
+        const maxPage = Math.ceil(filtered.length / pageSize);
+        DOM.droppedNextPageBtn.disabled = currentPage >= maxPage;
+      }
+    } else {
+      DOM.droppedPagination.style.display = "none";
+    }
+  }
+
+  if (DOM.droppedTableWrapper) {
+    DOM.droppedTableWrapper.style.display = "block";
+  }
+}
+
+function exportDroppedDetailsToCsv() {
+  const filtered = STATE.dropped.filteredData;
+  if (filtered.length === 0) return;
+  
+  const headers = STATE.dropped.headers;
+  
+  let csvContent = "\ufeff"; 
+  csvContent += headers.map(h => `"${h.replace(/"/g, '""')}"`).join(",") + "\r\n";
+  
+  filtered.forEach(row => {
+    csvContent += row.map(cell => {
+      const cellStr = String(cell !== null && cell !== undefined ? cell : "");
+      return `"${cellStr.replace(/"/g, '""')}"`;
+    }).join(",") + "\r\n";
+  });
+  
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const dateStr = new Date().toISOString().slice(0, 10);
+  
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute("download", `ChiTietRotHang_${dateStr}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  logToConsole("Đã xuất danh sách chi tiết rớt hàng ra CSV thành công.", "success");
 }

@@ -773,3 +773,48 @@ body.light-mode tr:hover td {
   color: var(--text-primary);
 }
 
+/* Custom Tab Layout and Animations */
+.content-area .tabs-header {
+  margin-bottom: 24px;
+}
+.content-area .tab-btn {
+  flex: 1;
+  max-width: 250px;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 2px solid transparent;
+}
+.content-area .tab-btn.active {
+  background: rgba(59, 130, 246, 0.05);
+  border-bottom-color: var(--primary);
+}
+.content-area .tab-btn::after {
+  display: none; /* Disable standard absolute line */
+}
+
+/* Spinner styling for Dropped Details */
+.dropped-spinner {
+  border: 4px solid var(--border-color);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: droppedSpin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes droppedSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Date picker Dark Mode adjustment */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
+  padding: 2px;
+}
+body.light-mode input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+}
+
+
