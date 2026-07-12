@@ -31,7 +31,7 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
     echo.
     echo Dang day du lieu moi len GitHub...
     pushd "%BASE_DIR%"
-    git add "Data/Data ST/DATA ST.xlsx" "Data/KFM/KFM.xlsx" "Data/ABA/ABA.xlsx"
+    git add "Data/Data ST/DATA ST.xlsx" "Data/KFM/KFM.xlsx" "Data/ABA/ABA.xlsx" "Ouput/status.json"
     git commit -m "Auto-update data files from Google Drive"
     git push origin main
     popd

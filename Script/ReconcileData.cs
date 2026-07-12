@@ -556,6 +556,28 @@ namespace ReconcileData
                         File.Move(kfmFile, archiveFile);
                         Console.WriteLine("Da luu tru file KFM: " + Path.GetFileName(kfmFile));
                     }
+
+                    // Write status.json
+                    try
+                    {
+                        string statusFile = Path.Combine(Path.GetDirectoryName(outFile), "status.json");
+                        string json = string.Format(
+                            "{{\n  \"lastUpdated\": \"{0}\",\n  \"kfmFile\": \"{1}\",\n  \"kfmDate\": \"{2}\",\n  \"abaFile\": \"{3}\",\n  \"abaDate\": \"{4}\",\n  \"mismatchCount\": {5},\n  \"participatingStores\": {6}\n}}",
+                            DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                            Path.GetFileName(kfmFile).Replace("\\", "\\\\").Replace("\"", "\\\""),
+                            FormatDate(kfmDateStr),
+                            Path.GetFileName(abaFile).Replace("\\", "\\\\").Replace("\"", "\\\""),
+                            FormatDate(abaDateStr),
+                            stLechList.Count,
+                            allStSet.Count
+                        );
+                        File.WriteAllText(statusFile, json, Encoding.UTF8);
+                        Console.WriteLine("Da ghi file status.json thanh cong!");
+                    }
+                    catch (Exception statusEx)
+                    {
+                        Console.WriteLine("Loi khi ghi file status.json: " + statusEx.Message);
+                    }
                 }
                 catch (Exception fileEx)
                 {

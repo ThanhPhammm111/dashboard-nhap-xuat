@@ -6,6 +6,7 @@ Data/**/*.xlsx
 !Data/ABA/ABA.xlsx
 Ouput/*
 !Ouput/.gitkeep
+!Ouput/status.json
 Archive/
 
 # OS files

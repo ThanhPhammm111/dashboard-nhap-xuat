@@ -56,85 +56,42 @@
     <!-- Sidebar / Control Panel -->
     <div class="sidebar">
       <div class="card">
-        <div class="tabs-header">
-          <button class="tab-btn active" data-tab="localFilesTab">Local Files</button>
-          <button class="tab-btn" data-tab="googleSheetsTab">Google Sheets</button>
-        </div>
+        <h3 class="card-title" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+          <span style="font-size: 1.25rem;">📡</span> Trạng Thái Đồng Bộ
+        </h3>
         
-        <!-- Tab: Local Files -->
-        <div class="tab-content active" id="localFilesTab">
-          <div class="form-group">
-            <label>Nguồn dữ liệu (Kéo thả hoặc nhấn chọn)</label>
-            
-            <!-- File Drag and Drops -->
-            <div class="file-drop-zone" id="dropZoneSt" data-file-type="dataSt">
-              <svg class="file-drop-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-              <div>
-                <div class="file-drop-title">File DATA ST Mapping</div>
-                <div class="file-drop-desc">Kéo file .xlsx / .csv vào đây</div>
-              </div>
-              <input type="file" id="fileStInput" accept=".xlsx, .xls, .csv" style="display:none;">
-            </div>
-            
-            <div class="file-drop-zone" id="dropZoneKfm" data-file-type="kfm">
-              <svg class="file-drop-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
-              <div>
-                <div class="file-drop-title">File KFM (Số lượng xuất)</div>
-                <div class="file-drop-desc">Kéo file transfer_*.xlsx vào đây</div>
-              </div>
-              <input type="file" id="fileKfmInput" accept=".xlsx, .xls, .csv" style="display:none;">
-            </div>
-            
-            <div class="file-drop-zone" id="dropZoneAba" data-file-type="aba">
-              <svg class="file-drop-icon" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
-              <div>
-                <div class="file-drop-title">File ABA (Số lượng giao)</div>
-                <div class="file-drop-desc">Kéo file Copy of *.xlsx vào đây</div>
-              </div>
-              <input type="file" id="fileAbaInput" accept=".xlsx, .xls, .csv" style="display:none;">
-            </div>
+        <div class="sync-status-container">
+          <div class="sync-status-item">
+            <span class="sync-label">Lần đối soát cuối cùng:</span>
+            <span class="sync-val" id="syncLastUpdated">Đang tải...</span>
           </div>
-          
-          <!-- File List Statuses -->
-          <div class="file-status-list">
-            <div class="file-status-item" id="statusSt">
-              <div><span class="file-status-label">DATA ST:</span> <span class="file-status-name" id="nameDataSt">Chưa chọn</span></div>
-              <span class="status-badge missing" id="badgeDataSt">Thiếu</span>
-            </div>
-            <div class="file-status-item" id="statusKfm">
-              <div><span class="file-status-label">KFM Data:</span> <span class="file-status-name" id="nameKfm">Chưa chọn</span></div>
-              <span class="status-badge missing" id="badgeKfm">Thiếu</span>
-            </div>
-            <div class="file-status-item" id="statusAba">
-              <div><span class="file-status-label">ABA Data:</span> <span class="file-status-name" id="nameAba">Chưa chọn</span></div>
-              <span class="status-badge missing" id="badgeAba">Thiếu</span>
-            </div>
+          <div class="sync-status-item">
+            <span class="sync-label">Ngày đối soát dữ liệu:</span>
+            <span class="sync-val" id="syncReconcileDate" style="color: var(--primary); font-weight: 700;">Đang tải...</span>
+          </div>
+          <div class="sync-status-item">
+            <span class="sync-label">File xuất hàng (KFM):</span>
+            <span class="sync-val" id="syncKfmFile" style="font-size: 0.8rem; word-break: break-all;">Đang tải...</span>
+          </div>
+          <div class="sync-status-item">
+            <span class="sync-label">File giao hàng (ABA):</span>
+            <span class="sync-val" id="syncAbaFile" style="font-size: 0.8rem; word-break: break-all;">Đang tải...</span>
+          </div>
+          <div class="sync-status-item" style="flex-direction: row; justify-content: space-between; align-items: center;">
+            <span class="sync-label">Telegram Alert:</span>
+            <span class="sync-val" id="syncTelegramStatus"><span class="status-badge loaded">Hoạt động</span></span>
           </div>
         </div>
-        
-        <!-- Tab: Google Sheets -->
-        <div class="tab-content" id="googleSheetsTab">
-          <div class="form-group">
-            <label for="sheetStUrl">Google Sheet DATA ST URL</label>
-            <input type="text" class="form-control" id="sheetStUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
-          </div>
-          <div class="form-group">
-            <label for="sheetKfmUrl">Google Sheet KFM URL</label>
-            <input type="text" class="form-control" id="sheetKfmUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
-          </div>
-          <div class="form-group">
-            <label for="sheetAbaUrl">Google Sheet ABA URL</label>
-            <input type="text" class="form-control" id="sheetAbaUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
-          </div>
-          <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 15px;">
-            Lưu ý: Sheet cần ở chế độ chia sẻ "Bất kỳ ai có liên kết đều có thể xem" nếu sử dụng phương thức đọc trực tiếp link CSV công khai.
-          </p>
+
+        <div style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+          <h4 style="font-size: 0.85rem; margin-bottom: 10px; color: var(--text-secondary); font-weight: 600;">💡 Hướng dẫn cập nhật số liệu:</h4>
+          <ol style="font-size: 0.75rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6; display: flex; flex-direction: column; gap: 6px;">
+            <li>Tải các file KFM/ABA mới nhất vào đúng thư mục <b>Data</b> tương ứng trên máy tính.</li>
+            <li>Click đúp file <b>ChayDoiSoatNgay.bat</b> trong thư mục <b>Script</b>.</li>
+            <li>Đợi hệ thống đối soát, báo Telegram và tự động đẩy lên GitHub.</li>
+            <li>F5 lại trang này để xem kết quả trực tuyến mới nhất.</li>
+          </ol>
         </div>
-        
-        <button class="btn btn-primary" id="runReconcileBtn" style="width: 100%; margin-top: 20px;" disabled>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          Chạy Đối Soát
-        </button>
       </div>
 
       <!-- Quick Action logs -->

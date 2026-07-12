@@ -245,24 +245,26 @@ function setupEventListeners() {
   });
   
   // Setup Drag & Drop zones
-  setupDragAndDrop(DOM.dropZoneSt, DOM.fileStInput, "dataSt");
-  setupDragAndDrop(DOM.dropZoneKfm, DOM.fileKfmInput, "kfm");
-  setupDragAndDrop(DOM.dropZoneAba, DOM.fileAbaInput, "aba");
+  if (DOM.dropZoneSt && DOM.fileStInput) setupDragAndDrop(DOM.dropZoneSt, DOM.fileStInput, "dataSt");
+  if (DOM.dropZoneKfm && DOM.fileKfmInput) setupDragAndDrop(DOM.dropZoneKfm, DOM.fileKfmInput, "kfm");
+  if (DOM.dropZoneAba && DOM.fileAbaInput) setupDragAndDrop(DOM.dropZoneAba, DOM.fileAbaInput, "aba");
   
   // Google Sheets inputs change
-  [DOM.sheetStUrl, DOM.sheetKfmUrl, DOM.sheetAbaUrl].forEach(input => {
-    input.addEventListener("input", () => {
-      STATE.sheets.dataStUrl = DOM.sheetStUrl.value.trim();
-      STATE.sheets.kfmUrl = DOM.sheetKfmUrl.value.trim();
-      STATE.sheets.abaUrl = DOM.sheetAbaUrl.value.trim();
-      
-      localStorage.setItem("sheets_config", JSON.stringify(STATE.sheets));
-      checkReadyToRun();
+  if (DOM.sheetStUrl && DOM.sheetKfmUrl && DOM.sheetAbaUrl) {
+    [DOM.sheetStUrl, DOM.sheetKfmUrl, DOM.sheetAbaUrl].forEach(input => {
+      input.addEventListener("input", () => {
+        STATE.sheets.dataStUrl = DOM.sheetStUrl.value.trim();
+        STATE.sheets.kfmUrl = DOM.sheetKfmUrl.value.trim();
+        STATE.sheets.abaUrl = DOM.sheetAbaUrl.value.trim();
+        
+        localStorage.setItem("sheets_config", JSON.stringify(STATE.sheets));
+        checkReadyToRun();
+      });
     });
-  });
+  }
   
   // Run Reconcile Button
-  DOM.runReconcileBtn.addEventListener("click", runReconcile);
+  if (DOM.runReconcileBtn) DOM.runReconcileBtn.addEventListener("click", runReconcile);
   
   // Interactive Table events
   DOM.searchTable.addEventListener("input", (e) => {
@@ -397,11 +399,33 @@ function checkReadyToRun() {
     ready = STATE.sheets.dataStUrl !== "" && STATE.sheets.kfmUrl !== "" && STATE.sheets.abaUrl !== "";
   }
   
-  DOM.runReconcileBtn.disabled = !ready;
+  if (DOM.runReconcileBtn) DOM.runReconcileBtn.disabled = !ready;
 }
 
 async function autoLoadRepoData() {
   logToConsole("Đang kiểm tra dữ liệu đối soát mới nhất trên máy chủ...");
+  
+  // Load status metadata
+  try {
+    const statusUrl = "Ouput/status.json";
+    const resStatus = await fetch(statusUrl);
+    if (resStatus.ok) {
+      const status = await resStatus.json();
+      document.getElementById("syncLastUpdated").innerText = status.lastUpdated || "N/A";
+      document.getElementById("syncReconcileDate").innerText = status.kfmDate || "N/A";
+      document.getElementById("syncKfmFile").innerText = status.kfmFile || "N/A";
+      document.getElementById("syncAbaFile").innerText = status.abaFile || "N/A";
+      logToConsole(`Đã nạp trạng thái đồng bộ: Đối soát ngày ${status.kfmDate}.`);
+    } else {
+      document.getElementById("syncLastUpdated").innerText = "Chưa có dữ liệu";
+      document.getElementById("syncReconcileDate").innerText = "Chưa có dữ liệu";
+      document.getElementById("syncKfmFile").innerText = "Chưa có dữ liệu";
+      document.getElementById("syncAbaFile").innerText = "Chưa có dữ liệu";
+    }
+  } catch (statusErr) {
+    console.error("Could not load status.json", statusErr);
+  }
+
   try {
     const dataStUrl = "Data/Data ST/DATA ST.xlsx";
     const kfmUrl = "Data/KFM/KFM.xlsx";
