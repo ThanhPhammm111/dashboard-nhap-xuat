@@ -59,10 +59,10 @@ const DOM = {
   fileAbaInput: document.getElementById("fileAbaInput"),
   
   // File Badges & Names
-  badgeSt: document.getElementById("badgeSt"),
+  badgeSt: document.getElementById("badgeDataSt"),
   badgeKfm: document.getElementById("badgeKfm"),
   badgeAba: document.getElementById("badgeAba"),
-  nameSt: document.getElementById("nameSt"),
+  nameSt: document.getElementById("nameDataSt"),
   nameKfm: document.getElementById("nameKfm"),
   nameAba: document.getElementById("nameAba"),
   
@@ -337,6 +337,7 @@ function setupEventListeners() {
 // 5. Drag and Drop File Handlers
 function setupDragAndDrop(dropZone, fileInput, fileKey) {
   dropZone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("click", (e) => e.stopPropagation());
   
   dropZone.addEventListener("dragover", (e) => {
     e.preventDefault();
