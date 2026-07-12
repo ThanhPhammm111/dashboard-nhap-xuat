@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Linq;
 using System.Net;
+using System.IO.Compression;
+using System.Xml;
 
 namespace ReconcileData
 {
@@ -13,22 +15,45 @@ namespace ReconcileData
         {
             if (args.Length < 4)
             {
-                Console.WriteLine("Usage: ReconcileData.exe <DataST.csv> <KFM.csv> <ABA.csv> <Result.csv>");
+                Console.WriteLine("Usage: ReconcileData.exe <DataST.xlsx/csv> <KFM.xlsx/csv> <ABA.xlsx/csv> <Result.csv>");
                 return;
             }
 
-            string dataStFile = args[0];
-            string kfmFile = args[1];
-            string abaFile = args[2];
+            string dataStFile = ResolveLatestFile(args[0], "*.xlsx");
+            string kfmFile = ResolveLatestFile(args[1], "*.xlsx");
+            string abaFile = ResolveLatestFile(args[2], "*.xlsx");
             string outFile = args[3];
             string telegramToken = args.Length > 4 ? args[4] : "";
             string telegramChatId = args.Length > 5 ? args[5] : "";
 
+            if (string.IsNullOrEmpty(dataStFile)) { Console.WriteLine("Khong tim thay file DATA ST!"); return; }
+            if (string.IsNullOrEmpty(kfmFile)) { Console.WriteLine("Khong tim thay file KFM!"); return; }
+            if (string.IsNullOrEmpty(abaFile)) { Console.WriteLine("Khong tim thay file ABA!"); return; }
+
+            Console.WriteLine("Su dung file DATA ST: " + Path.GetFileName(dataStFile));
+            Console.WriteLine("Su dung file KFM: " + Path.GetFileName(kfmFile));
+            Console.WriteLine("Su dung file ABA: " + Path.GetFileName(abaFile));
+
             try
             {
+                // Date check
+                string kfmDateStr = ExtractDate(kfmFile);
+                string abaDateStr = ExtractDate(abaFile);
+                bool dateMismatch = false;
+                if (!string.IsNullOrEmpty(kfmDateStr) && !string.IsNullOrEmpty(abaDateStr) && kfmDateStr != abaDateStr)
+                {
+                    dateMismatch = true;
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("\n==================================================================");
+                    Console.WriteLine("CANH BAO: Ngay cua file KFM (" + FormatDate(kfmDateStr) + ") va file ABA (" + FormatDate(abaDateStr) + ") KHONG KHOP NHAU!");
+                    Console.WriteLine("Dieu nay co the lam cho ket qua doi soat bi lech rat nhieu.");
+                    Console.WriteLine("Vui long kiem tra lai cac file trong thu muc Data.");
+                    Console.WriteLine("==================================================================\n");
+                    Console.ResetColor();
+                }
                 // 1. Load Data ST mapping
                 Console.WriteLine("Doc file DATA ST...");
-                var stData = ReadCsv(dataStFile);
+                var stData = ReadExcelOrCsv(dataStFile);
                 if (stData.Count < 2) throw new Exception("DATA ST file is empty or missing headers.");
                 
                 int stColName = FindCol(stData[0], new[] { "Nơi nhận", "Noi nhan" });
@@ -53,7 +78,7 @@ namespace ReconcileData
 
                 // 2. Load KFM data
                 Console.WriteLine("Doc file KFM...");
-                var kfmData = ReadCsv(kfmFile);
+                var kfmData = ReadExcelOrCsv(kfmFile);
                 if (kfmData.Count < 2) throw new Exception("KFM file is empty or missing headers.");
                 
                 int kfmColBranch = FindCol(kfmData[0], new[] { "Chi nhánh nhận", "Chi nhanh nhan" });
@@ -113,7 +138,7 @@ namespace ReconcileData
 
                 // 3. Load ABA data
                 Console.WriteLine("Doc file ABA...");
-                var abaData = ReadCsv(abaFile);
+                var abaData = ReadExcelOrCsv(abaFile);
                 if (abaData.Count < 2) throw new Exception("ABA file is empty or missing headers.");
                 
                 int abaColST = FindCol(abaData[0], new[] { "Mã CH", "Ma CH" });
@@ -368,6 +393,16 @@ namespace ReconcileData
     <div class=""container"">
         <h1>📊 BÁO CÁO ĐỐI SOÁT XUẤT HÀNG</h1>");
 
+                if (dateMismatch)
+                {
+                    html.AppendLine(@"<div class=""success-banner"" style=""background: #fffbeb; border: 1px solid #fef3c7; color: #b45309; margin-bottom: 24px; font-size: 1.1rem; line-height: 1.5; text-align: left; font-weight: normal;"">
+                        ⚠️ <b>CẢNH BÁO LỆCH NGÀY DỮ LIỆU:</b><br>
+                        - File KFM ngày: <b>" + FormatDate(kfmDateStr) + @"</b> (" + Path.GetFileName(kfmFile) + @")<br>
+                        - File ABA ngày: <b>" + FormatDate(abaDateStr) + @"</b> (" + Path.GetFileName(abaFile) + @")<br>
+                        Ngày của hai file không khớp nhau. Kết quả đối soát dưới đây có thể bị lệch rất nhiều do so sánh chênh lệch giữa hai ngày khác nhau.
+                    </div>");
+                }
+
                 html.AppendLine(@"
         <div class=""stats-grid"">
             <div class=""stat-card primary"">
@@ -448,22 +483,28 @@ namespace ReconcileData
                     Console.ResetColor();
 
                     var tgMsg = new StringBuilder();
-                    tgMsg.AppendLine("📊 *BÁO CÁO ĐỐI SOÁT XUẤT HÀNG*");
-                    tgMsg.AppendLine(string.Format("\n🏢 Tổng siêu thị tham gia: *{0}*", allStSet.Count));
-                    tgMsg.AppendLine(string.Format("🚨 Siêu thị thiếu phiếu: *{0}*", stLechList.Count));
+                    tgMsg.AppendLine("📊 <b>BÁO CÁO ĐỐI SOÁT XUẤT HÀNG</b>");
+                    tgMsg.AppendLine(string.Format("\n🏢 Tổng siêu thị tham gia: <b>{0}</b>", allStSet.Count));
+                    tgMsg.AppendLine(string.Format("🚨 Siêu thị thiếu phiếu: <b>{0}</b>", stLechList.Count));
                     
                     if (warningDict.Count == 0) {
-                        tgMsg.AppendLine("\n✅ _Tuyệt vời! 100% khớp số liệu._");
+                        tgMsg.AppendLine("\n✅ <i>Tuyệt vời! 100% khớp số liệu.</i>");
                     } else {
-                        tgMsg.AppendLine("\n⚠️ *CHI TIẾT CẢNH BÁO:*");
-                        foreach(var kvp in warningDict.OrderBy(x => x.Key)) {
+                        tgMsg.AppendLine("\n⚠️ <b>CHI TIẾT CẢNH BÁO:</b>");
+                        var warnings = warningDict.OrderBy(x => x.Key).ToList();
+                        int limit = 20; // Limit to 20 warnings in telegram to avoid 4096 char limit
+                        for (int k = 0; k < Math.Min(warnings.Count, limit); k++) {
+                            var kvp = warnings[k];
                             var wparts = kvp.Key.Split('|');
-                            tgMsg.AppendLine(string.Format("❌ Chi nhánh *{0}* lệch hàng _{1}_ (Lệch: *{2}*)", wparts[0], wparts[1], kvp.Value));
+                            tgMsg.AppendLine(string.Format("❌ Chi nhánh <b>{0}</b> lệch hàng <i>{1}</i> (Lệch: <b>{2}</b>)", wparts[0], wparts[1], kvp.Value));
+                        }
+                        if (warnings.Count > limit) {
+                            tgMsg.AppendLine(string.Format("... và <b>{0}</b> cảnh báo khác. Vui lòng xem chi tiết trong file báo cáo.", warnings.Count - limit));
                         }
                     }
                     
                     if (stLechList.Count > 0) {
-                        tgMsg.AppendLine("\n📋 *DS nhanh ST lệch:* " + string.Join(", ", stLechList.OrderBy(x => x)));
+                        tgMsg.AppendLine("\n📋 <b>DS nhanh ST lệch:</b> " + string.Join(", ", stLechList.OrderBy(x => x)));
                     }
 
                     try {
@@ -476,6 +517,49 @@ namespace ReconcileData
                         Console.WriteLine("Loi gui Telegram: " + texc.Message);
                         Console.ResetColor();
                     }
+                }
+
+                // Copy to fixed filenames and Archive raw files
+                try
+                {
+                    string rootDir = Path.GetDirectoryName(Path.GetDirectoryName(outFile)); // Parent of Output is root
+                    
+                    string dataStTarget = Path.Combine(rootDir, @"Data\Data ST\DATA ST.xlsx");
+                    string kfmTarget = Path.Combine(rootDir, @"Data\KFM\KFM.xlsx");
+                    string abaTarget = Path.Combine(rootDir, @"Data\ABA\ABA.xlsx");
+
+                    // Copy ST
+                    if (Path.GetFullPath(dataStFile) != Path.GetFullPath(dataStTarget))
+                    {
+                        File.Copy(dataStFile, dataStTarget, true);
+                    }
+                    // Copy KFM
+                    if (Path.GetFullPath(kfmFile) != Path.GetFullPath(kfmTarget))
+                    {
+                        File.Copy(kfmFile, kfmTarget, true);
+                    }
+                    // Copy ABA
+                    if (Path.GetFullPath(abaFile) != Path.GetFullPath(abaTarget))
+                    {
+                        File.Copy(abaFile, abaTarget, true);
+                    }
+
+                    // Archive KFM
+                    string dateStamp = DateTime.Now.ToString("yyyy-MM-dd");
+                    string archiveDir = Path.Combine(rootDir, "Archive", dateStamp);
+                    if (!Directory.Exists(archiveDir)) Directory.CreateDirectory(archiveDir);
+                    
+                    if (Path.GetFullPath(kfmFile) != Path.GetFullPath(kfmTarget) && File.Exists(kfmFile))
+                    {
+                        string archiveFile = Path.Combine(archiveDir, Path.GetFileName(kfmFile));
+                        if (File.Exists(archiveFile)) File.Delete(archiveFile);
+                        File.Move(kfmFile, archiveFile);
+                        Console.WriteLine("Da luu tru file KFM: " + Path.GetFileName(kfmFile));
+                    }
+                }
+                catch (Exception fileEx)
+                {
+                    Console.WriteLine("Loi khi copy/archive file: " + fileEx.Message);
                 }
             }
             catch (Exception ex)
@@ -498,6 +582,15 @@ namespace ReconcileData
             return -1;
         }
 
+        static List<string[]> ReadExcelOrCsv(string file)
+        {
+            if (file.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return ReadXlsx(file);
+            }
+            return ReadCsv(file);
+        }
+
         static List<string[]> ReadCsv(string file)
         {
             var result = new List<string[]>();
@@ -511,6 +604,169 @@ namespace ReconcileData
                 }
             }
             return result;
+        }
+
+        static int GetColumnIndex(string cellRef)
+        {
+            int colIndex = 0;
+            foreach (char c in cellRef)
+            {
+                if (char.IsLetter(c))
+                {
+                    colIndex = colIndex * 26 + (char.ToUpper(c) - 'A' + 1);
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return colIndex - 1;
+        }
+
+        static List<string> ReadSharedStrings(string filepath)
+        {
+            var sharedStrings = new List<string>();
+            using (ZipArchive zip = ZipFile.OpenRead(filepath))
+            {
+                var sstEntry = zip.GetEntry("xl/sharedStrings.xml");
+                if (sstEntry != null)
+                {
+                    using (var stream = sstEntry.Open())
+                    using (var reader = System.Xml.XmlReader.Create(stream))
+                    {
+                        bool insideT = false;
+                        StringBuilder sb = new StringBuilder();
+                        while (reader.Read())
+                        {
+                            if (reader.NodeType == System.Xml.XmlNodeType.Element)
+                            {
+                                if (reader.Name == "si")
+                                {
+                                    sb.Length = 0;
+                                }
+                                else if (reader.Name == "t")
+                                {
+                                    insideT = true;
+                                }
+                            }
+                            else if (reader.NodeType == System.Xml.XmlNodeType.Text && insideT)
+                            {
+                                sb.Append(reader.Value);
+                            }
+                            else if (reader.NodeType == System.Xml.XmlNodeType.EndElement)
+                            {
+                                if (reader.Name == "t")
+                                {
+                                    insideT = false;
+                                }
+                                else if (reader.Name == "si")
+                                {
+                                    sharedStrings.Add(sb.ToString());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return sharedStrings;
+        }
+
+        static List<string[]> ReadXlsx(string filepath)
+        {
+            var rows = new List<string[]>();
+            var sharedStrings = ReadSharedStrings(filepath);
+            
+            using (ZipArchive zip = ZipFile.OpenRead(filepath))
+            {
+                var sheetEntry = zip.GetEntry("xl/worksheets/sheet1.xml");
+                if (sheetEntry == null)
+                {
+                    foreach (var entry in zip.Entries)
+                    {
+                        if (entry.FullName.StartsWith("xl/worksheets/sheet", StringComparison.OrdinalIgnoreCase))
+                        {
+                            sheetEntry = entry;
+                            break;
+                        }
+                    }
+                }
+
+                if (sheetEntry != null)
+                {
+                    using (var stream = sheetEntry.Open())
+                    using (var reader = System.Xml.XmlReader.Create(stream))
+                    {
+                        var currentRow = new SortedDictionary<int, string>();
+                        int maxColIndex = -1;
+                        string currentCellRef = null;
+                        string currentCellType = null;
+                        bool insideV = false;
+
+                        while (reader.Read())
+                        {
+                            if (reader.NodeType == System.Xml.XmlNodeType.Element)
+                            {
+                                if (reader.Name == "row")
+                                {
+                                    currentRow.Clear();
+                                    maxColIndex = -1;
+                                }
+                                else if (reader.Name == "c")
+                                {
+                                    currentCellRef = reader.GetAttribute("r");
+                                    currentCellType = reader.GetAttribute("t");
+                                }
+                                else if (reader.Name == "v")
+                                {
+                                    insideV = true;
+                                }
+                            }
+                            else if (reader.NodeType == System.Xml.XmlNodeType.Text && insideV)
+                            {
+                                string val = reader.Value;
+                                if (currentCellType == "s")
+                                {
+                                    int sstIdx;
+                                    if (int.TryParse(val, out sstIdx) && sstIdx >= 0 && sstIdx < sharedStrings.Count)
+                                    {
+                                        val = sharedStrings[sstIdx];
+                                    }
+                                }
+                                if (currentCellRef != null)
+                                {
+                                    int colIndex = GetColumnIndex(currentCellRef);
+                                    currentRow[colIndex] = val;
+                                    if (colIndex > maxColIndex) maxColIndex = colIndex;
+                                }
+                            }
+                            else if (reader.NodeType == System.Xml.XmlNodeType.EndElement)
+                            {
+                                if (reader.Name == "v")
+                                {
+                                    insideV = false;
+                                }
+                                else if (reader.Name == "row")
+                                {
+                                    if (maxColIndex >= 0)
+                                    {
+                                        string[] rowData = new string[maxColIndex + 1];
+                                        for (int i = 0; i <= maxColIndex; i++)
+                                        {
+                                            rowData[i] = currentRow.ContainsKey(i) ? currentRow[i] : "";
+                                        }
+                                        rows.Add(rowData);
+                                    }
+                                    else
+                                    {
+                                        rows.Add(new string[0]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return rows;
         }
 
         static string[] ParseCsvLine(string line)
@@ -567,10 +823,96 @@ namespace ReconcileData
             }
         }
 
+        static string ResolveLatestFile(string path, string pattern)
+        {
+            if (File.Exists(path)) return path;
+            if (Directory.Exists(path))
+            {
+                var files = Directory.GetFiles(path, pattern);
+                if (files.Length == 0) return "";
+                
+                string latestFile = null;
+                DateTime latestDate = DateTime.MinValue;
+                
+                foreach (var file in files)
+                {
+                    string name = Path.GetFileName(file).ToLower();
+                    if (name == "kfm.xlsx" || name == "aba.xlsx" || name.Contains("copy"))
+                        continue;
+
+                    string dateStr = ExtractDate(file);
+                    if (!string.IsNullOrEmpty(dateStr))
+                    {
+                        DateTime fileDate = ParseDateStr(dateStr);
+                        if (fileDate > latestDate)
+                        {
+                            latestDate = fileDate;
+                            latestFile = file;
+                        }
+                    }
+                }
+                
+                if (latestFile == null)
+                {
+                    var validFiles = files.Where(f => {
+                        string name = Path.GetFileName(f).ToLower();
+                        return name != "kfm.xlsx" && name != "aba.xlsx" && !name.Contains("copy");
+                    }).ToList();
+                    
+                    if (validFiles.Count > 0)
+                    {
+                        latestFile = validFiles.OrderByDescending(f => File.GetLastWriteTime(f)).FirstOrDefault();
+                    }
+                }
+                
+                return latestFile;
+            }
+            return "";
+        }
+
+        static DateTime ParseDateStr(string dateStr)
+        {
+            if (dateStr.Length == 8)
+            {
+                try
+                {
+                    int day = int.Parse(dateStr.Substring(0, 2));
+                    int month = int.Parse(dateStr.Substring(2, 2));
+                    int year = int.Parse(dateStr.Substring(4, 4));
+                    return new DateTime(year, month, day);
+                }
+                catch
+                {
+                    return DateTime.MinValue;
+                }
+            }
+            return DateTime.MinValue;
+        }
+
+        static string ExtractDate(string filepath)
+        {
+            string filename = Path.GetFileName(filepath);
+            var match = System.Text.RegularExpressions.Regex.Match(filename, @"\d{8}");
+            if (match.Success)
+            {
+                return match.Value;
+            }
+            return "";
+        }
+
+        static string FormatDate(string dateStr)
+        {
+            if (dateStr.Length == 8)
+            {
+                return dateStr.Substring(0, 2) + "/" + dateStr.Substring(2, 2) + "/" + dateStr.Substring(4, 4);
+            }
+            return dateStr;
+        }
+
         static void SendTelegramMessage(string botToken, string chatId, string message)
         {
             string url = string.Format("https://api.telegram.org/bot{0}/sendMessage", botToken);
-            string postData = string.Format("chat_id={0}&text={1}&parse_mode=Markdown", 
+            string postData = string.Format("chat_id={0}&text={1}&parse_mode=HTML", 
                 Uri.EscapeDataString(chatId), 
                 Uri.EscapeDataString(message));
             
