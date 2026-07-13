@@ -109,7 +109,7 @@
       <!-- Tab Navigation -->
       <div class="tabs-header" style="border-bottom: 2px solid var(--border-color); display: flex; gap: 8px; margin-bottom: 24px;">
         <button class="tab-btn active" data-tab="tabReconcile" id="tabBtnReconcile" style="max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">🔄 Đối Soát Xuất Nhập</button>
-        <button class="tab-btn" data-tab="tabDropped" id="tabBtnDropped" style="max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">⚠️ Chi Tiết Rớt Hàng</button>
+        <button class="tab-btn" data-tab="tabDropped" id="tabBtnDropped" style="display: none !important; max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">⚠️ Chi Tiết Rớt Hàng</button>
       </div>
 
       <!-- Tab Content: Reconciliation -->
@@ -350,7 +350,7 @@
         <h4 style="margin-bottom: 12px; font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
           Tùy chọn Logic Đối Soát
         </h4>
-        <div class="form-group" style="margin-bottom: 16px;">
+        <div class="form-group" style="display: none; margin-bottom: 16px;">
           <label for="settingsDroppedSheetUrl">Link Google Sheet (Chi Tiết Rớt Hàng)</label>
           <input type="text" class="form-control" id="settingsDroppedSheetUrl" placeholder="Dán link Google Sheet có chứa tab Chi tiết rớt hàng ở đây...">
         </div>
