@@ -36,6 +36,11 @@
     </div>
     
     <div class="header-actions">
+      <!-- Date selector -->
+      <select class="form-control" id="filterDate" style="width: 170px; font-weight: 600; font-family: 'Outfit', sans-serif; height: 38px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary); padding: 0 10px; cursor: pointer; display: none;">
+        <option value="">Đang tải ngày...</option>
+      </select>
+
       <button class="theme-toggle" id="themeToggle" title="Chuyển chế độ sáng/tối">
         <!-- Sun icon -->
         <svg id="sunIcon" style="display: none;" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
@@ -177,30 +182,28 @@
           </div>
         </div>
 
-        <!-- Interactive Data Table Card -->
+        <!-- Card 1: Đã Có Phiếu KFM Nhưng Lệch Số Lượng -->
         <div class="card">
           <div class="table-header-row">
-            <h3 class="card-title" style="margin-bottom: 0;">Bảng Chi Tiết Chênh Lệch</h3>
+            <h3 class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+              <span>⚠️</span> Bảng Chi Tiết Lệch Số Lượng (Đã có phiếu KFM)
+            </h3>
             <div class="table-filters">
-              <input type="text" class="form-control table-filter-input" id="searchTable" placeholder="Tìm ST, Mã SP, Tên...">
-              <select class="form-control table-filter-input" id="filterDate" style="width: 160px; font-weight: 600;">
-                <option value="">Đang tải ngày...</option>
-              </select>
-              <select class="form-control table-filter-input" id="filterDiff" style="width: 130px;">
+              <input type="text" class="form-control table-filter-input" id="searchTableCreated" placeholder="Tìm ST, Mã SP, Tên...">
+              <select class="form-control table-filter-input" id="filterDiffCreated" style="width: 140px;">
                 <option value="all">Tất cả chênh lệch</option>
                 <option value="negative">Lệch âm (KFM < ABA)</option>
                 <option value="positive">Lệch dương (KFM > ABA)</option>
               </select>
-              <button class="btn btn-secondary" id="exportCsvBtn">
+              <button class="btn btn-secondary" id="exportCsvBtnCreated">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                 Xuất Excel/CSV
               </button>
             </div>
           </div>
           
-          <!-- Table -->
           <div class="table-wrapper">
-            <table id="reconcileTable">
+            <table id="reconcileTableCreated">
               <thead>
                 <tr>
                   <th data-sort="st">Siêu thị (ST Code) <span class="sort-icon">↕</span></th>
@@ -212,18 +215,60 @@
                   <th data-sort="diff" style="text-align: right;">Chênh lệch <span class="sort-icon">↕</span></th>
                 </tr>
               </thead>
-              <tbody id="reconcileTableBody">
+              <tbody id="reconcileTableBodyCreated">
                 <!-- Loaded dynamically -->
               </tbody>
             </table>
           </div>
           
-          <!-- Pagination -->
           <div class="pagination">
-            <div id="paginationInfo">Đang hiển thị 0 - 0 của 0 kết quả</div>
+            <div id="paginationInfoCreated">Đang hiển thị 0 - 0 của 0 kết quả</div>
             <div class="pagination-controls">
-              <button class="page-btn" id="prevPageBtn" disabled>Trước</button>
-              <button class="page-btn" id="nextPageBtn" disabled>Sau</button>
+              <button class="page-btn" id="prevPageBtnCreated" disabled>Trước</button>
+              <button class="page-btn" id="nextPageBtnCreated" disabled>Sau</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Chưa Tạo Phiếu KFM -->
+        <div class="card" style="margin-top: 10px;">
+          <div class="table-header-row">
+            <h3 class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+              <span>❌</span> Bảng Chi Tiết Chưa Tạo Phiếu KFM (ABA có - KFM trống)
+            </h3>
+            <div class="table-filters">
+              <input type="text" class="form-control table-filter-input" id="searchTableMissing" placeholder="Tìm ST, Mã SP, Tên...">
+              <button class="btn btn-secondary" id="exportCsvBtnMissing">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Xuất Excel/CSV
+              </button>
+            </div>
+          </div>
+          
+          <div class="table-wrapper">
+            <table id="reconcileTableMissing">
+              <thead>
+                <tr>
+                  <th data-sort="st">Siêu thị (ST Code) <span class="sort-icon">↕</span></th>
+                  <th data-sort="productCode">Mã sản phẩm <span class="sort-icon">↕</span></th>
+                  <th data-sort="productName">Tên sản phẩm <span class="sort-icon">↕</span></th>
+                  <th data-sort="category">Nhóm hàng / Loại hàng <span class="sort-icon">↕</span></th>
+                  <th data-sort="kfmQty" style="text-align: right;">SL KFM (Chuyển) <span class="sort-icon">↕</span></th>
+                  <th data-sort="abaQty" style="text-align: right;">SL ABA (Giao) <span class="sort-icon">↕</span></th>
+                  <th data-sort="diff" style="text-align: right;">Chênh lệch <span class="sort-icon">↕</span></th>
+                </tr>
+              </thead>
+              <tbody id="reconcileTableBodyMissing">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="pagination">
+            <div id="paginationInfoMissing">Đang hiển thị 0 - 0 của 0 kết quả</div>
+            <div class="pagination-controls">
+              <button class="page-btn" id="prevPageBtnMissing" disabled>Trước</button>
+              <button class="page-btn" id="nextPageBtnMissing" disabled>Sau</button>
             </div>
           </div>
         </div>

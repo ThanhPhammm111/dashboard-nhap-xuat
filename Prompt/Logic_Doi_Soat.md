@@ -38,6 +38,9 @@ Script sẽ đọc 3 file đầu vào được xuất từ hệ thống:
    - Tính chênh lệch: `Diff = Số lượng chuyển (KFM) - Số lượng giao (ABA)`
    - *Lưu ý:* Những dòng khớp số lượng (`Diff = 0`) sẽ được tự động loại bỏ để file kết quả chỉ tập trung vào các trường hợp bị lệch.
 5. **Xử lý định dạng:** Các mã sản phẩm được bọc bằng công thức `="mã"` để tránh lỗi Excel biến số thành định dạng khoa học (ví dụ: `8.93E+12`).
+6. **Phân loại chênh lệch (Cải tiến):** Đối với các trường hợp bị lệch số lượng (`Diff != 0`), hệ thống sẽ tự động phân loại:
+   - **Chưa tạo phiếu KFM:** Nếu số lượng ở phía KFM = 0 (nghĩa là có hàng giao ở ABA nhưng chưa thấy tạo phiếu xuất bên KFM).
+   - **Đã tạo phiếu KFM nhưng lệch số lượng:** Nếu số lượng ở phía KFM > 0 (nghĩa là đã tạo phiếu xuất bên KFM nhưng số lượng xuất khác biệt so với số lượng thực tế giao nhận bên ABA).
 
 ## 3. Cách Vận Hành Của Thư Mục Script
 - Thư mục `Script` chỉ chứa các file thực thi (`RunReconcile.bat` và `ReconcileData.cs`). 

@@ -207,9 +207,11 @@ namespace ReconcileData
                 var results = new List<string[]>();
                 var stLechList = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var warningDict = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+                var dsChuaCoPhieu = new List<string[]>();
+                var dsDaCoPhieuLech = new List<string[]>();
                 
-                // Header
-                results.Add(new[] { "Key (ST_Code)", "ST Code / Abbr", "Product Code", "Product Name", "Category", "Loai Hang", "KFM Qty (SL Chuyen)", "ABA Qty (SL Giao)", "Diff (Lech)" });
+                // Header (Added column Loại chênh lệch)
+                results.Add(new[] { "Key (ST_Code)", "ST Code / Abbr", "Product Code", "Product Name", "Category", "Loai Hang", "KFM Qty (SL Chuyen)", "ABA Qty (SL Giao)", "Diff (Lech)", "Loai Chenh Lech" });
 
                 foreach (var key in allKeys)
                 {
@@ -227,6 +229,8 @@ namespace ReconcileData
                     string prodCategory = productCategoryDict.ContainsKey(prod) ? productCategoryDict[prod] : "";
                     string prodLoaiHang = productLoaiHangDict.ContainsKey(prod) ? productLoaiHangDict[prod] : "";
                     string prodTextFormat = "=\"" + prod + "\"";
+                    
+                    string diffType = kfmQty == 0 ? "Chưa tạo phiếu KFM" : "Đã tạo phiếu KFM (Lệch số lượng)";
 
                     if (!string.IsNullOrEmpty(st)) {
                         stLechList.Add(st);
@@ -236,6 +240,13 @@ namespace ReconcileData
                         string wKey = st + "|" + catInfo;
                         if (warningDict.ContainsKey(wKey)) warningDict[wKey] += diff;
                         else warningDict[wKey] = diff;
+
+                        var itemDetails = new[] { st, prod, prodName, catInfo, kfmQty.ToString(), abaQty.ToString(), diff.ToString() };
+                        if (kfmQty == 0) {
+                            dsChuaCoPhieu.Add(itemDetails);
+                        } else {
+                            dsDaCoPhieuLech.Add(itemDetails);
+                        }
                     }
 
                     results.Add(new[] { 
@@ -247,7 +258,8 @@ namespace ReconcileData
                         prodLoaiHang,
                         kfmQty.ToString(), 
                         abaQty.ToString(), 
-                        diff.ToString() 
+                        diff.ToString(),
+                        diffType
                     });
                 }
 
@@ -396,6 +408,33 @@ namespace ReconcileData
             border: 1px solid #a7f3d0;
             box-shadow: 0 4px 6px rgba(16, 185, 129, 0.1);
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            margin-bottom: 30px;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            border: 1px solid #e2e8f0;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+        }
+        th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+        tr:hover { background-color: #f8fafc; }
+        .text-right { text-align: right; }
     </style>
 </head>
 <body>
@@ -424,7 +463,7 @@ namespace ReconcileData
             </div>
         </div>");
 
-                html.AppendLine(@"<div class=""section-title"">🚨 Chi Tiết Cảnh Báo Thiếu Phiếu</div>");
+                html.AppendLine(@"<div class=""section-title"">🚨 Chi Tiết Cảnh Báo Lệch Nhóm Hàng</div>");
                 
                 var formattedWarnings = new List<string>();
                 if (warningDict.Count == 0) {
@@ -435,15 +474,51 @@ namespace ReconcileData
                         var wparts = kvp.Key.Split('|');
                         string sw = wparts[0];
                         string cw = wparts[1];
-                        string wMsg = string.Format("=> CANH BAO: Chi nhanh [{0}] dang lech hang '{1}' (Kha nang chua tao phieu! Tong so luong lech: {2})", sw, cw, kvp.Value);
+                        string wMsg = string.Format("=> CANH BAO: Chi nhanh [{0}] dang lech hang '{1}' (Tong so luong lech: {2})", sw, cw, kvp.Value);
                         formattedWarnings.Add(wMsg);
                         
                         html.AppendLine(string.Format(@"<li class=""warning-item"">
-                            <span>Chi nhánh <b>{0}</b> thiếu phiếu nhóm hàng <b>{1}</b></span>
+                            <span>Chi nhánh <b>{0}</b> lệch nhóm hàng <b>{1}</b></span>
                             <span class=""qty-badge"">Lệch {2}</span>
                         </li>", sw, cw, kvp.Value));
                     }
                     html.AppendLine(@"</ul>");
+                }
+
+                if (dsDaCoPhieuLech.Count > 0)
+                {
+                    html.AppendLine(@"<div class=""section-title"">⚠️ Chi Tiết Mã Đã Có Phiếu KFM Nhưng Lệch Số Lượng (" + dsDaCoPhieuLech.Count + @")</div>");
+                    html.AppendLine(@"<table>");
+                    html.AppendLine(@"<thead><tr><th>Siêu thị</th><th>Mã sản phẩm</th><th>Tên sản phẩm</th><th>Nhóm</th><th class=""text-right"">SL KFM</th><th class=""text-right"">SL ABA</th><th class=""text-right"">Chênh lệch</th></tr></thead>");
+                    html.AppendLine(@"<tbody>");
+                    foreach (var row in dsDaCoPhieuLech.OrderBy(x => x[0]).ThenBy(x => x[1]))
+                    {
+                        decimal kfm = decimal.Parse(row[4]);
+                        decimal aba = decimal.Parse(row[5]);
+                        decimal diff = decimal.Parse(row[6]);
+                        html.AppendLine(string.Format(@"<tr><td><b>{0}</b></td><td><code>{1}</code></td><td>{2}</td><td>{3}</td><td class=""text-right"">{4:N0}</td><td class=""text-right"">{5:N0}</td><td class=""text-right"" style=""color: {7}; font-weight: bold;"">{6:+0;-0;0}</td></tr>",
+                            row[0], row[1], row[2], row[3], kfm, aba, diff, diff > 0 ? "var(--success)" : "var(--danger)"));
+                    }
+                    html.AppendLine(@"</tbody>");
+                    html.AppendLine(@"</table>");
+                }
+
+                if (dsChuaCoPhieu.Count > 0)
+                {
+                    html.AppendLine(@"<div class=""section-title"">❌ Chi Tiết Mã Chưa Tạo Phiếu KFM (" + dsChuaCoPhieu.Count + @")</div>");
+                    html.AppendLine(@"<table>");
+                    html.AppendLine(@"<thead><tr><th>Siêu thị</th><th>Mã sản phẩm</th><th>Tên sản phẩm</th><th>Nhóm</th><th class=""text-right"">SL KFM</th><th class=""text-right"">SL ABA</th><th class=""text-right"">Chênh lệch</th></tr></thead>");
+                    html.AppendLine(@"<tbody>");
+                    foreach (var row in dsChuaCoPhieu.OrderBy(x => x[0]).ThenBy(x => x[1]))
+                    {
+                        decimal kfm = decimal.Parse(row[4]);
+                        decimal aba = decimal.Parse(row[5]);
+                        decimal diff = decimal.Parse(row[6]);
+                        html.AppendLine(string.Format(@"<tr><td><b>{0}</b></td><td><code>{1}</code></td><td>{2}</td><td>{3}</td><td class=""text-right"">{4:N0}</td><td class=""text-right"">{5:N0}</td><td class=""text-right"" style=""color: var(--danger); font-weight: bold;"">{6:+0;-0;0}</td></tr>",
+                            row[0], row[1], row[2], row[3], kfm, aba, diff));
+                    }
+                    html.AppendLine(@"</tbody>");
+                    html.AppendLine(@"</table>");
                 }
 
                 html.AppendLine(@"<div class=""section-title"">🏢 Danh Sách Nhanh ST Lệch</div>");
@@ -492,90 +567,40 @@ namespace ReconcileData
                     tgMsg.AppendLine(string.Format("📅 Ngày đối soát: <b>{0}</b>", FormatDate(kfmDateStr)));
                     tgMsg.AppendLine(string.Format("📊 Tổng siêu thị tham gia: <b>{0}</b>", allStSet.Count));
 
-                    if (warningDict.Count == 0) {
+                    if (stLechList.Count == 0) {
                         tgMsg.AppendLine("\n✅ <i>Tuyệt vời! 100% khớp số liệu.</i>");
                     } else {
-                        var meatWarnings = new List<string>();
-                        var frozenWarnings = new List<string>();
-                        var otherWarnings = new List<string>();
-                        
                         var meatStSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                         var frozenStSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                        foreach (var kvp in warningDict.OrderBy(x => x.Key))
+                        foreach (var kvp in warningDict)
                         {
                             var wparts = kvp.Key.Split('|');
                             string sw = wparts[0];
                             string cw = wparts[1];
-                            decimal val = kvp.Value;
-                            
-                            string itemStr = string.Format("\n• <b>{0}</b>: <b>{1:N0}</b>", sw, val);
-                            
-                            if (cw.ToLower().Contains("meat"))
-                            {
-                                meatWarnings.Add(itemStr);
-                                meatStSet.Add(sw);
-                            }
-                            else if (cw.ToLower().Contains("frozen"))
-                            {
-                                frozenWarnings.Add(itemStr);
-                                frozenStSet.Add(sw);
-                            }
-                            else
-                            {
-                                otherWarnings.Add(string.Format("\n• <b>{0}</b> (<i>{1}</i>): <b>{2:N0}</b>", sw, cw, val));
-                            }
+                            if (cw.ToLower().Contains("meat")) meatStSet.Add(sw);
+                            else if (cw.ToLower().Contains("frozen")) frozenStSet.Add(sw);
                         }
 
+                        decimal totalDiff = 0;
+                        foreach (var r in results.Skip(1))
+                        {
+                            decimal dVal = 0;
+                            decimal.TryParse(r[8], out dVal);
+                            totalDiff += Math.Abs(dVal);
+                        }
+
+                        tgMsg.AppendLine(string.Format("⚠️ <b>Siêu thị bị lệch: {0} CH</b> (Tổng lệch: <b>{1:N0}</b>)", stLechList.Count, totalDiff));
+                        tgMsg.AppendLine("");
                         tgMsg.AppendLine(string.Format("🥩 Lệch hàng MEAT: <b>{0} CH</b>", meatStSet.Count));
                         tgMsg.AppendLine(string.Format("❄️ Lệch hàng FROZEN: <b>{0} CH</b>", frozenStSet.Count));
                         tgMsg.AppendLine("-------------------------------------------------");
-
-                        if (meatWarnings.Count > 0)
-                        {
-                            tgMsg.AppendLine("\n🥩 <b>SIÊU THỊ LỆCH MEAT:</b>");
-                            int limit = 15;
-                            for (int i = 0; i < Math.Min(meatWarnings.Count, limit); i++)
-                            {
-                                tgMsg.Append(meatWarnings[i]);
-                            }
-                            if (meatWarnings.Count > limit)
-                            {
-                                tgMsg.AppendLine(string.Format("\n... và {0} CH khác.", meatWarnings.Count - limit));
-                            }
-                        }
-
-                        if (frozenWarnings.Count > 0)
-                        {
-                            tgMsg.AppendLine("\n\n❄️ <b>SIÊU THỊ LỆCH FROZEN:</b>");
-                            int limit = 15;
-                            for (int i = 0; i < Math.Min(frozenWarnings.Count, limit); i++)
-                            {
-                                tgMsg.Append(frozenWarnings[i]);
-                            }
-                            if (frozenWarnings.Count > limit)
-                            {
-                                tgMsg.AppendLine(string.Format("\n... và {0} CH khác.", frozenWarnings.Count - limit));
-                            }
-                        }
-
-                        if (otherWarnings.Count > 0)
-                        {
-                            tgMsg.AppendLine("\n\n❓ <b>LỆCH NHÓM KHÁC:</b>");
-                            int limit = 10;
-                            for (int i = 0; i < Math.Min(otherWarnings.Count, limit); i++)
-                            {
-                                tgMsg.Append(otherWarnings[i]);
-                            }
-                            if (otherWarnings.Count > limit)
-                            {
-                                tgMsg.AppendLine(string.Format("\n... và {0} CH khác.", otherWarnings.Count - limit));
-                            }
-                        }
                     }
                     
                     if (stLechList.Count > 0) {
-                        tgMsg.AppendLine("\n📋 <b>DS nhanh ST lệch:</b> " + string.Join(", ", stLechList.OrderBy(x => x)));
+                        tgMsg.AppendLine("\n📋 <b>Danh sách ST lệch:</b> " + string.Join(", ", stLechList.OrderBy(x => x)));
+                        tgMsg.AppendLine("\n🔗 <b>Chi tiết đối soát xem tại Dashboard:</b>");
+                        tgMsg.AppendLine("https://thanhphammm111.github.io/dashboard-nhap-xuat/");
                     }
 
                     try {

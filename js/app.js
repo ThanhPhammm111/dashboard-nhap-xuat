@@ -25,12 +25,19 @@ const STATE = {
   warnings: [],
   stats: {},
   
-  // Table View States
-  table: {
+  // Table View States (Created & Missing separated)
+  tableCreated: {
     search: "",
     diffFilter: "all",
     sortBy: "st",
-    sortOrder: "asc", // 'asc' or 'desc'
+    sortOrder: "asc",
+    currentPage: 1,
+    pageSize: 15
+  },
+  tableMissing: {
+    search: "",
+    sortBy: "st",
+    sortOrder: "asc",
     currentPage: 1,
     pageSize: 15
   },
@@ -141,15 +148,23 @@ const DOM = {
   // Warnings
   warningListUi: document.getElementById("warningListUi"),
   
-  // Interactive Table Elements
-  reconcileTableBody: document.getElementById("reconcileTableBody"),
-  searchTable: document.getElementById("searchTable"),
-  filterDiff: document.getElementById("filterDiff"),
-  exportCsvBtn: document.getElementById("exportCsvBtn"),
-  prevPageBtn: document.getElementById("prevPageBtn"),
-  nextPageBtn: document.getElementById("nextPageBtn"),
-  paginationInfo: document.getElementById("paginationInfo"),
-  tableHeaders: document.querySelectorAll("#reconcileTable th"),
+  // Interactive Table Elements (Separated)
+  reconcileTableBodyCreated: document.getElementById("reconcileTableBodyCreated"),
+  searchTableCreated: document.getElementById("searchTableCreated"),
+  filterDiffCreated: document.getElementById("filterDiffCreated"),
+  exportCsvBtnCreated: document.getElementById("exportCsvBtnCreated"),
+  prevPageBtnCreated: document.getElementById("prevPageBtnCreated"),
+  nextPageBtnCreated: document.getElementById("nextPageBtnCreated"),
+  paginationInfoCreated: document.getElementById("paginationInfoCreated"),
+  tableHeadersCreated: document.querySelectorAll("#reconcileTableCreated th"),
+
+  reconcileTableBodyMissing: document.getElementById("reconcileTableBodyMissing"),
+  searchTableMissing: document.getElementById("searchTableMissing"),
+  exportCsvBtnMissing: document.getElementById("exportCsvBtnMissing"),
+  prevPageBtnMissing: document.getElementById("prevPageBtnMissing"),
+  nextPageBtnMissing: document.getElementById("nextPageBtnMissing"),
+  paginationInfoMissing: document.getElementById("paginationInfoMissing"),
+  tableHeadersMissing: document.querySelectorAll("#reconcileTableMissing th"),
   
   // Modals
   openSettingsBtn: document.getElementById("openSettingsBtn"),
@@ -322,19 +337,133 @@ function setupEventListeners() {
   // Run Reconcile Button
   if (DOM.runReconcileBtn) DOM.runReconcileBtn.addEventListener("click", runReconcile);
   
-  // Interactive Table events
-  DOM.searchTable.addEventListener("input", (e) => {
-    STATE.table.search = e.target.value;
-    STATE.table.currentPage = 1;
-    updateTableView();
-  });
+  // Interactive Table events (Created Table)
+  if (DOM.searchTableCreated) {
+    DOM.searchTableCreated.addEventListener("input", (e) => {
+      STATE.tableCreated.search = e.target.value;
+      STATE.tableCreated.currentPage = 1;
+      updateCreatedTableView();
+    });
+  }
   
-  DOM.filterDiff.addEventListener("change", (e) => {
-    STATE.table.diffFilter = e.target.value;
-    STATE.table.currentPage = 1;
-    updateTableView();
-  });
+  if (DOM.filterDiffCreated) {
+    DOM.filterDiffCreated.addEventListener("change", (e) => {
+      STATE.tableCreated.diffFilter = e.target.value;
+      STATE.tableCreated.currentPage = 1;
+      updateCreatedTableView();
+    });
+  }
 
+  if (DOM.exportCsvBtnCreated) {
+    DOM.exportCsvBtnCreated.addEventListener("click", exportToCsvCreated);
+  }
+
+  if (DOM.prevPageBtnCreated) {
+    DOM.prevPageBtnCreated.addEventListener("click", () => {
+      if (STATE.tableCreated.currentPage > 1) {
+        STATE.tableCreated.currentPage--;
+        updateCreatedTableView();
+      }
+    });
+  }
+
+  if (DOM.nextPageBtnCreated) {
+    DOM.nextPageBtnCreated.addEventListener("click", () => {
+      const filtered = getFilteredCreatedData();
+      const maxPage = Math.ceil(filtered.length / STATE.tableCreated.pageSize);
+      if (STATE.tableCreated.currentPage < maxPage) {
+        STATE.tableCreated.currentPage++;
+        updateCreatedTableView();
+      }
+    });
+  }
+
+  if (DOM.tableHeadersCreated) {
+    DOM.tableHeadersCreated.forEach(th => {
+      th.addEventListener("click", () => {
+        const field = th.getAttribute("data-sort");
+        if (!field) return;
+        
+        if (STATE.tableCreated.sortBy === field) {
+          STATE.tableCreated.sortOrder = STATE.tableCreated.sortOrder === "asc" ? "desc" : "asc";
+        } else {
+          STATE.tableCreated.sortBy = field;
+          STATE.tableCreated.sortOrder = "asc";
+        }
+        
+        DOM.tableHeadersCreated.forEach(h => {
+          const icon = h.querySelector(".sort-icon");
+          if (icon) icon.innerText = "↕";
+        });
+        const currentIcon = th.querySelector(".sort-icon");
+        if (currentIcon) {
+          currentIcon.innerText = STATE.tableCreated.sortOrder === "asc" ? "↑" : "↓";
+        }
+        
+        updateCreatedTableView();
+      });
+    });
+  }
+
+  // Interactive Table events (Missing Table)
+  if (DOM.searchTableMissing) {
+    DOM.searchTableMissing.addEventListener("input", (e) => {
+      STATE.tableMissing.search = e.target.value;
+      STATE.tableMissing.currentPage = 1;
+      updateMissingTableView();
+    });
+  }
+
+  if (DOM.exportCsvBtnMissing) {
+    DOM.exportCsvBtnMissing.addEventListener("click", exportToCsvMissing);
+  }
+
+  if (DOM.prevPageBtnMissing) {
+    DOM.prevPageBtnMissing.addEventListener("click", () => {
+      if (STATE.tableMissing.currentPage > 1) {
+        STATE.tableMissing.currentPage--;
+        updateMissingTableView();
+      }
+    });
+  }
+
+  if (DOM.nextPageBtnMissing) {
+    DOM.nextPageBtnMissing.addEventListener("click", () => {
+      const filtered = getFilteredMissingData();
+      const maxPage = Math.ceil(filtered.length / STATE.tableMissing.pageSize);
+      if (STATE.tableMissing.currentPage < maxPage) {
+        STATE.tableMissing.currentPage++;
+        updateMissingTableView();
+      }
+    });
+  }
+
+  if (DOM.tableHeadersMissing) {
+    DOM.tableHeadersMissing.forEach(th => {
+      th.addEventListener("click", () => {
+        const field = th.getAttribute("data-sort");
+        if (!field) return;
+        
+        if (STATE.tableMissing.sortBy === field) {
+          STATE.tableMissing.sortOrder = STATE.tableMissing.sortOrder === "asc" ? "desc" : "asc";
+        } else {
+          STATE.tableMissing.sortBy = field;
+          STATE.tableMissing.sortOrder = "asc";
+        }
+        
+        DOM.tableHeadersMissing.forEach(h => {
+          const icon = h.querySelector(".sort-icon");
+          if (icon) icon.innerText = "↕";
+        });
+        const currentIcon = th.querySelector(".sort-icon");
+        if (currentIcon) {
+          currentIcon.innerText = STATE.tableMissing.sortOrder === "asc" ? "↑" : "↓";
+        }
+        
+        updateMissingTableView();
+      });
+    });
+  }
   if (DOM.filterDate) {
     DOM.filterDate.addEventListener("change", (e) => {
       const selectedIndex = e.target.selectedIndex;
@@ -352,49 +481,6 @@ function setupEventListeners() {
       loadSelectedResult(resultFile, totalSt);
     });
   }
-  
-  DOM.exportCsvBtn.addEventListener("click", exportToCsv);
-  
-  DOM.prevPageBtn.addEventListener("click", () => {
-    if (STATE.table.currentPage > 1) {
-      STATE.table.currentPage--;
-      updateTableView();
-    }
-  });
-  
-  DOM.nextPageBtn.addEventListener("click", () => {
-    const filtered = getFilteredData();
-    const maxPage = Math.ceil(filtered.length / STATE.table.pageSize);
-    if (STATE.table.currentPage < maxPage) {
-      STATE.table.currentPage++;
-      updateTableView();
-    }
-  });
-  
-  DOM.tableHeaders.forEach(th => {
-    th.addEventListener("click", () => {
-      const field = th.getAttribute("data-sort");
-      if (!field) return;
-      
-      if (STATE.table.sortBy === field) {
-        STATE.table.sortOrder = STATE.table.sortOrder === "asc" ? "desc" : "asc";
-      } else {
-        STATE.table.sortBy = field;
-        STATE.table.sortOrder = "asc";
-      }
-      
-      // Update sort icons
-      DOM.tableHeaders.forEach(h => {
-        const icon = h.querySelector(".sort-icon");
-        if (icon) icon.innerText = "↕";
-      });
-      const currentIcon = th.querySelector(".sort-icon");
-      if (currentIcon) {
-        currentIcon.innerText = STATE.table.sortOrder === "asc" ? "↑" : "↓";
-      }
-      
-      updateTableView();
-    });
   });
   
   // Settings Modals Actions
@@ -620,6 +706,8 @@ async function loadSelectedResult(filename, totalSt) {
       const abaQty = parseFloat(String(row[7] || "").replace(/,/g, "")) || 0;
       const diff = parseFloat(String(row[8] || "").replace(/,/g, "")) || 0;
       
+      const diffType = row.length > 9 ? String(row[9] || "").trim() : (kfmQty === 0 ? "Chưa tạo phiếu KFM" : "Đã tạo phiếu KFM (Lệch số lượng)");
+      
       if (st) stLechSet.add(st);
       
       results.push({
@@ -631,7 +719,8 @@ async function loadSelectedResult(filename, totalSt) {
         loaiHang,
         kfmQty,
         abaQty,
-        diff
+        diff,
+        diffType
       });
       
       // Calculate warnings
@@ -841,9 +930,11 @@ function renderDashboard() {
   drawStoreChart();
   drawCategoryChart();
   
-  // Render Table
-  STATE.table.currentPage = 1;
-  updateTableView();
+  // Render Tables
+  STATE.tableCreated.currentPage = 1;
+  STATE.tableMissing.currentPage = 1;
+  updateCreatedTableView();
+  updateMissingTableView();
 }
 
 function drawStoreChart() {
@@ -950,13 +1041,16 @@ function drawCategoryChart() {
   });
 }
 
-// 9. Table View Updates (Filter / Search / Sort)
-function getFilteredData() {
-  let data = [...STATE.results];
+// 9. Table View Updates (Filter / Search / Sort) - Separated for 2 tables
+
+// --- CREATED TABLE ---
+function getFilteredCreatedData() {
+  // Filter only items where kfmQty > 0
+  let data = STATE.results.filter(r => r.kfmQty > 0);
   
   // Search
-  if (STATE.table.search) {
-    const query = STATE.table.search.toLowerCase();
+  if (STATE.tableCreated.search) {
+    const query = STATE.tableCreated.search.toLowerCase();
     data = data.filter(r => 
       r.st.toLowerCase().includes(query) ||
       r.productCode.toLowerCase().includes(query) ||
@@ -966,14 +1060,14 @@ function getFilteredData() {
   }
   
   // Diff Filter
-  if (STATE.table.diffFilter === "positive") {
+  if (STATE.tableCreated.diffFilter === "positive") {
     data = data.filter(r => r.diff > 0);
-  } else if (STATE.table.diffFilter === "negative") {
+  } else if (STATE.tableCreated.diffFilter === "negative") {
     data = data.filter(r => r.diff < 0);
   }
   
   // Sorting
-  const { sortBy, sortOrder } = STATE.table;
+  const { sortBy, sortOrder } = STATE.tableCreated;
   data.sort((a, b) => {
     let valA = a[sortBy];
     let valB = b[sortBy];
@@ -990,59 +1084,149 @@ function getFilteredData() {
   return data;
 }
 
-function updateTableView() {
-  const filtered = getFilteredData();
+function updateCreatedTableView() {
+  const filtered = getFilteredCreatedData();
   const totalItems = filtered.length;
   
-  const { currentPage, pageSize } = STATE.table;
+  const { currentPage, pageSize } = STATE.tableCreated;
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
   const paginatedData = filtered.slice(startIndex, endIndex);
   
-  DOM.reconcileTableBody.innerHTML = "";
-  if (paginatedData.length === 0) {
-    DOM.reconcileTableBody.innerHTML = `
-      <tr>
-        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px 0;">
-          Không tìm thấy chênh lệch nào khớp với bộ lọc.
-        </td>
-      </tr>
-    `;
-  } else {
-    paginatedData.forEach(row => {
-      const tr = document.createElement("tr");
-      
-      const diffClass = row.diff > 0 ? "cell-diff positive" : "cell-diff negative";
-      const diffPrefix = row.diff > 0 ? "+" : "";
-      
-      tr.innerHTML = `
-        <td><b>${row.st}</b></td>
-        <td><code>${row.productCode}</code></td>
-        <td>${row.productName}</td>
-        <td><span style="color: var(--text-secondary); font-size: 0.8rem;">${row.category || row.loaiHang || "Khác"}</span></td>
-        <td style="text-align: right;">${row.kfmQty.toLocaleString()}</td>
-        <td style="text-align: right;">${row.abaQty.toLocaleString()}</td>
-        <td style="text-align: right;" class="${diffClass}">${diffPrefix}${row.diff.toLocaleString()}</td>
+  if (DOM.reconcileTableBodyCreated) {
+    DOM.reconcileTableBodyCreated.innerHTML = "";
+    if (paginatedData.length === 0) {
+      DOM.reconcileTableBodyCreated.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+            Không tìm thấy chênh lệch nào khớp với bộ lọc.
+          </td>
+        </tr>
       `;
-      DOM.reconcileTableBody.appendChild(tr);
-    });
+    } else {
+      paginatedData.forEach(row => {
+        const tr = document.createElement("tr");
+        
+        const diffClass = row.diff > 0 ? "cell-diff positive" : "cell-diff negative";
+        const diffPrefix = row.diff > 0 ? "+" : "";
+        
+        tr.innerHTML = `
+          <td><b>${row.st}</b></td>
+          <td><code>${row.productCode}</code></td>
+          <td>${row.productName}</td>
+          <td><span style="color: var(--text-secondary); font-size: 0.8rem;">${row.category || row.loaiHang || "Khác"}</span></td>
+          <td style="text-align: right;">${row.kfmQty.toLocaleString()}</td>
+          <td style="text-align: right;">${row.abaQty.toLocaleString()}</td>
+          <td style="text-align: right;" class="${diffClass}">${diffPrefix}${row.diff.toLocaleString()}</td>
+        `;
+        DOM.reconcileTableBodyCreated.appendChild(tr);
+      });
+    }
   }
   
-  DOM.paginationInfo.innerText = totalItems > 0 
-    ? `Đang hiển thị ${startIndex + 1} - ${endIndex} của ${totalItems} kết quả`
-    : `Đang hiển thị 0 - 0 của 0 kết quả`;
-    
-  DOM.prevPageBtn.disabled = currentPage === 1;
-  DOM.nextPageBtn.disabled = endIndex >= totalItems;
+  if (DOM.paginationInfoCreated) {
+    DOM.paginationInfoCreated.innerText = totalItems > 0 
+      ? `Đang hiển thị ${startIndex + 1} - ${endIndex} của ${totalItems} kết quả`
+      : `Đang hiển thị 0 - 0 của 0 kết quả`;
+  }
+  
+  if (DOM.prevPageBtnCreated) DOM.prevPageBtnCreated.disabled = currentPage === 1;
+  if (DOM.nextPageBtnCreated) DOM.nextPageBtnCreated.disabled = endIndex >= totalItems;
 }
 
-// 10. File Exports (CSV Generate)
-function exportToCsv() {
-  if (STATE.results.length === 0) return;
+// --- MISSING TABLE ---
+function getFilteredMissingData() {
+  // Filter only items where kfmQty === 0
+  let data = STATE.results.filter(r => r.kfmQty === 0);
   
-  const headers = ["Key (ST_Code)", "ST Code / Abbr", "Product Code", "Product Name", "Category", "Loai Hang", "KFM Qty (SL Chuyen)", "ABA Qty (SL Giao)", "Diff (Lech)"];
+  // Search
+  if (STATE.tableMissing.search) {
+    const query = STATE.tableMissing.search.toLowerCase();
+    data = data.filter(r => 
+      r.st.toLowerCase().includes(query) ||
+      r.productCode.toLowerCase().includes(query) ||
+      r.productName.toLowerCase().includes(query) ||
+      (r.category && r.category.toLowerCase().includes(query))
+    );
+  }
   
-  const rows = STATE.results.map(r => [
+  // Sorting
+  const { sortBy, sortOrder } = STATE.tableMissing;
+  data.sort((a, b) => {
+    let valA = a[sortBy];
+    let valB = b[sortBy];
+    
+    if (typeof valA === "string") {
+      valA = valA.toLowerCase();
+      valB = valB.toLowerCase();
+      return sortOrder === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    } else {
+      return sortOrder === "asc" ? valA - valB : valB - valA;
+    }
+  });
+  
+  return data;
+}
+
+function updateMissingTableView() {
+  const filtered = getFilteredMissingData();
+  const totalItems = filtered.length;
+  
+  const { currentPage, pageSize } = STATE.tableMissing;
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const paginatedData = filtered.slice(startIndex, endIndex);
+  
+  if (DOM.reconcileTableBodyMissing) {
+    DOM.reconcileTableBodyMissing.innerHTML = "";
+    if (paginatedData.length === 0) {
+      DOM.reconcileTableBodyMissing.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+            Không tìm thấy chênh lệch nào khớp với bộ lọc.
+          </td>
+        </tr>
+      `;
+    } else {
+      paginatedData.forEach(row => {
+        const tr = document.createElement("tr");
+        
+        const diffClass = row.diff > 0 ? "cell-diff positive" : "cell-diff negative";
+        const diffPrefix = row.diff > 0 ? "+" : "";
+        
+        tr.innerHTML = `
+          <td><b>${row.st}</b></td>
+          <td><code>${row.productCode}</code></td>
+          <td>${row.productName}</td>
+          <td><span style="color: var(--text-secondary); font-size: 0.8rem;">${row.category || row.loaiHang || "Khác"}</span></td>
+          <td style="text-align: right;">${row.kfmQty.toLocaleString()}</td>
+          <td style="text-align: right;">${row.abaQty.toLocaleString()}</td>
+          <td style="text-align: right;" class="${diffClass}">${diffPrefix}${row.diff.toLocaleString()}</td>
+        `;
+        DOM.reconcileTableBodyMissing.appendChild(tr);
+      });
+    }
+  }
+  
+  if (DOM.paginationInfoMissing) {
+    DOM.paginationInfoMissing.innerText = totalItems > 0 
+      ? `Đang hiển thị ${startIndex + 1} - ${endIndex} của ${totalItems} kết quả`
+      : `Đang hiển thị 0 - 0 của 0 kết quả`;
+  }
+  
+  if (DOM.prevPageBtnMissing) DOM.prevPageBtnMissing.disabled = currentPage === 1;
+  if (DOM.nextPageBtnMissing) DOM.nextPageBtnMissing.disabled = endIndex >= totalItems;
+}
+
+// 10. File Exports (CSV Generate) - Separated
+
+function exportToCsvCreated() {
+  const filtered = getFilteredCreatedData();
+  if (filtered.length === 0) return;
+  
+  const headers = ["Key (ST_Code)", "ST Code / Abbr", "Product Code", "Product Name", "Category", "Loai Hang", "KFM Qty (SL Chuyen)", "ABA Qty (SL Giao)", "Diff (Lech)", "Loai Chenh Lech"];
+  
+  const rows = filtered.map(r => [
     r.key,
     r.st,
     `="${r.productCode}"`, 
@@ -1051,9 +1235,36 @@ function exportToCsv() {
     r.loaiHang,
     r.kfmQty,
     r.abaQty,
-    r.diff
+    r.diff,
+    r.diffType
   ]);
   
+  triggerCsvDownload(headers, rows, "Created_Mismatches");
+}
+
+function exportToCsvMissing() {
+  const filtered = getFilteredMissingData();
+  if (filtered.length === 0) return;
+  
+  const headers = ["Key (ST_Code)", "ST Code / Abbr", "Product Code", "Product Name", "Category", "Loai Hang", "KFM Qty (SL Chuyen)", "ABA Qty (SL Giao)", "Diff (Lech)", "Loai Chenh Lech"];
+  
+  const rows = filtered.map(r => [
+    r.key,
+    r.st,
+    `="${r.productCode}"`, 
+    r.productName,
+    r.category,
+    r.loaiHang,
+    r.kfmQty,
+    r.abaQty,
+    r.diff,
+    r.diffType
+  ]);
+  
+  triggerCsvDownload(headers, rows, "Missing_Tickets");
+}
+
+function triggerCsvDownload(headers, rows, filenameSuffix) {
   let csvContent = "\ufeff"; 
   csvContent += headers.map(h => `"${h.replace(/"/g, '""')}"`).join(",") + "\r\n";
   
@@ -1069,12 +1280,12 @@ function exportToCsv() {
   const dateStr = new Date().toISOString().slice(0,10);
   
   link.href = URL.createObjectURL(blob);
-  link.setAttribute("download", `Result_DoiSoat_${dateStr}.csv`);
+  link.setAttribute("download", `Result_DoiSoat_${filenameSuffix}_${dateStr}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   
-  logToConsole("Đã xuất file đối soát ra CSV thành công.", "success");
+  logToConsole(`Đã xuất file đối soát (${filenameSuffix}) ra CSV thành công.`, "success");
 }
 
 // 11. Alert Integrations (Telegram Messaging)
@@ -1093,63 +1304,28 @@ async function sendTelegramReport() {
   if (STATE.results.length === 0) {
     msg += `\n\n✅ *Tuyệt vời! 100% khớp số liệu.*`;
   } else {
-    const meatWarnings = [];
-    const frozenWarnings = [];
-    const otherWarnings = [];
-    
     const meatStSet = new Set();
     const frozenStSet = new Set();
 
-    STATE.warnings.forEach(w => {
-      const cat = (w.category || "").toLowerCase();
-      const itemStr = `\n• *${w.st}*: *${w.diff.toLocaleString()}*`;
-      
-      if (cat.includes("meat")) {
-        meatWarnings.push(itemStr);
-        meatStSet.add(w.st);
-      } else if (cat.includes("frozen")) {
-        frozenWarnings.push(itemStr);
-        frozenStSet.add(w.st);
-      } else {
-        otherWarnings.push(`\n• *${w.st}* (_${w.category}_): *${w.diff.toLocaleString()}*`);
-      }
+    STATE.results.forEach(r => {
+      const cat = (r.category || r.loaiHang || "Khác").toLowerCase();
+      if (cat.includes("meat")) meatStSet.add(r.st);
+      else if (cat.includes("frozen")) frozenStSet.add(r.st);
     });
 
+    const totalDiff = STATE.results.reduce((sum, r) => sum + Math.abs(r.diff), 0);
+    const mismatchedStCount = STATE.stats.mismatchedSt || 0;
+    const mismatchedStList = STATE.stats.mismatchedStList || [];
+
+    msg += `\n⚠️ *Siêu thị bị lệch: ${mismatchedStCount} CH* (Tổng lệch: *${totalDiff.toLocaleString()}*)\n`;
     msg += `\n🥩 Lệch hàng MEAT: *${meatStSet.size} CH*`;
     msg += `\n❄️ Lệch hàng FROZEN: *${frozenStSet.size} CH*`;
     msg += `\n-------------------------------------------------`;
-
-    if (meatWarnings.length > 0) {
-      msg += `\n\n🥩 *SIÊU THỊ LỆCH MEAT:*`;
-      const limit = 15;
-      for (let i = 0; i < Math.Min(meatWarnings.length, limit); i++) {
-        msg += meatWarnings[i];
-      }
-      if (meatWarnings.length > limit) {
-        msg += `\n... và ${meatWarnings.length - limit} CH khác.`;
-      }
-    }
-
-    if (frozenWarnings.length > 0) {
-      msg += `\n\n❄️ *SIÊU THỊ LỆCH FROZEN:*`;
-      const limit = 15;
-      for (let i = 0; i < Math.Min(frozenWarnings.length, limit); i++) {
-        msg += frozenWarnings[i];
-      }
-      if (frozenWarnings.length > limit) {
-        msg += `\n... và ${frozenWarnings.length - limit} CH khác.`;
-      }
-    }
-
-    if (otherWarnings.length > 0) {
-      msg += `\n\n❓ *LỆCH NHÓM KHÁC:*`;
-      const limit = 10;
-      for (let i = 0; i < Math.Min(otherWarnings.length, limit); i++) {
-        msg += otherWarnings[i];
-      }
-      if (otherWarnings.length > limit) {
-        msg += `\n... và ${otherWarnings.length - limit} CH khác.`;
-      }
+    
+    if (mismatchedStList.length > 0) {
+      msg += `\n\n📋 *Danh sách ST lệch:* ${mismatchedStList.join(", ")}`;
+      msg += `\n\n🔗 *Chi tiết đối soát xem tại Dashboard:*`;
+      msg += `\nhttps://thanhphammm111.github.io/dashboard-nhap-xuat/`;
     }
   }
   

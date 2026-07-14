@@ -255,6 +255,8 @@ function performReconciliation(kfmDict, abaDict, productNameMap, productMetaMap)
         const wKey = `${st}|${catInfo}`;
         warningDict[wKey] = (warningDict[wKey] || 0) + diff;
         
+        const diffType = kfmQty === 0 ? "Chưa tạo phiếu KFM" : "Đã tạo phiếu KFM (Lệch số lượng)";
+        
         results.push({
             key,
             st,
@@ -264,7 +266,8 @@ function performReconciliation(kfmDict, abaDict, productNameMap, productMetaMap)
             loaiHang,
             kfmQty,
             abaQty,
-            diff
+            diff,
+            diffType
         });
     }
     
