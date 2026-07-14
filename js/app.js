@@ -588,7 +588,7 @@ async function autoLoadRepoData() {
   
   // Try loading history.json
   try {
-    const historyUrl = "Ouput/history.json";
+    const historyUrl = `Ouput/history.json?_=${Date.now()}`;
     const resHistory = await fetch(historyUrl);
     
     if (resHistory.ok) {
@@ -636,7 +636,7 @@ async function autoLoadRepoData() {
   
   let participatingStores = 0;
   try {
-    const statusUrl = "Ouput/status.json";
+    const statusUrl = `Ouput/status.json?_=${Date.now()}`;
     const resStatus = await fetch(statusUrl);
     if (resStatus.ok) {
       const status = await resStatus.json();
@@ -659,7 +659,7 @@ async function loadSelectedResult(filename, totalSt) {
     showProgress("Đang tải dữ liệu...", 20);
     logToConsole(`Đang tải dữ liệu kết quả đối soát [${filename}] từ máy chủ...`);
     
-    const resultUrl = `Ouput/${filename}`;
+    const resultUrl = `Ouput/${filename}?_=${Date.now()}`;
     const resResult = await fetch(resultUrl);
     if (!resResult.ok) {
       logToConsole(`Không tìm thấy kết quả đối soát [${filename}] trên máy chủ.`, "error");
