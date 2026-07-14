@@ -114,7 +114,7 @@
       <!-- Tab Navigation -->
       <div class="tabs-header" style="border-bottom: 2px solid var(--border-color); display: flex; gap: 8px; margin-bottom: 24px;">
         <button class="tab-btn active" data-tab="tabReconcile" id="tabBtnReconcile" style="max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">🔄 Đối Soát Xuất Nhập</button>
-        <button class="tab-btn" data-tab="tabForecast" id="tabBtnForecast" style="max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">📊 So Sánh Sản Lượng</button>
+        <button class="tab-btn" data-tab="tabForecast" id="tabBtnForecast" style="display: none !important; max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">📊 So Sánh Sản Lượng</button>
         <button class="tab-btn" data-tab="tabDropped" id="tabBtnDropped" style="display: none !important; max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">⚠️ Chi Tiết Rớt Hàng</button>
       </div>
 
@@ -279,7 +279,7 @@
     </div> <!-- End tabReconcile -->
 
     <!-- Tab Content: Forecast/Chart -->
-    <div id="tabForecast" class="tab-content" style="display: none; flex-direction: column; gap: 24px; width: 100%;">
+    <div id="tabForecast" class="tab-content" style="display: none !important; flex-direction: column; gap: 24px; width: 100%;">
       
       <!-- KPI Cards Grid -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; width: 100%;">
