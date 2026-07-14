@@ -2085,7 +2085,10 @@ async function renderForecastTab() {
   document.getElementById("kpiExceededDays").innerText = "Đang tải...";
 
   try {
-    const htmlUrl = `../Report nhap.xuat/Output/Nhập.Xuất Đông Mát.html?_=${Date.now()}`;
+    let htmlUrl = `../Report nhap.xuat/Output/Nhập.Xuất Đông Mát.html?_=${Date.now()}`;
+    if (window.location.hostname.includes("github.io") || window.location.hostname.includes("gitlab.io")) {
+      htmlUrl = `https://thanhphammm111.github.io/transport_daily_report/external/nhap_xuat_dm.html?_=${Date.now()}`;
+    }
     const res = await fetch(htmlUrl);
     if (!res.ok) {
       throw new Error(`Không thể tải file báo cáo: ${res.statusText}`);
