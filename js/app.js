@@ -481,7 +481,6 @@ function setupEventListeners() {
       loadSelectedResult(resultFile, totalSt);
     });
   }
-  });
   
   // Settings Modals Actions
   DOM.openSettingsBtn.addEventListener("click", () => DOM.settingsModal.classList.add("active"));
