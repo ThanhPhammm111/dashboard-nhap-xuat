@@ -604,7 +604,10 @@ namespace ReconcileData
                     }
 
                     try {
-                        SendTelegramMessage(telegramToken, telegramChatId, tgMsg.ToString());
+                        var ids = telegramChatId.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var id in ids) {
+                            SendTelegramMessage(telegramToken, id.Trim(), tgMsg.ToString());
+                        }
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("Da gui bao cao Telegram thanh cong!");
                         Console.ResetColor();
