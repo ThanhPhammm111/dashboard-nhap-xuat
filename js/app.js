@@ -24,6 +24,7 @@ const STATE = {
   results: [],
   warnings: [],
   stats: {},
+  history: [],
   
   // Table View States (Created & Missing separated)
   tableCreated: {
@@ -48,9 +49,9 @@ const STATE = {
     data: [], // Array of row arrays/objects
     headers: [],
     dateColIndex: -1,
-    filteredData: [],
-    weeks: [],
-    months: [],
+    weekColIndex: -1,
+    monthColIndex: -1,
+    storeColIndex: -1,
     filters: {
       fromDate: "",
       toDate: "",
@@ -69,7 +70,8 @@ const STATE = {
   // Chart Instances
   charts: {
     store: null,
-    category: null
+    category: null,
+    forecast: null
   }
 };
 
@@ -81,8 +83,10 @@ const DOM = {
   
   // Tabs Navigation
   tabBtnReconcile: document.getElementById("tabBtnReconcile"),
+  tabBtnForecast: document.getElementById("tabBtnForecast"),
   tabBtnDropped: document.getElementById("tabBtnDropped"),
   tabReconcile: document.getElementById("tabReconcile"),
+  tabForecast: document.getElementById("tabForecast"),
   tabDropped: document.getElementById("tabDropped"),
   
   // Tabs (legacy settings panel tabs)
@@ -496,19 +500,33 @@ function setupEventListeners() {
   DOM.testTelegramBtn.addEventListener("click", testTelegram);
   
   // Main Tab Navigation
-  if (DOM.tabBtnReconcile && DOM.tabBtnDropped) {
+  if (DOM.tabBtnReconcile && DOM.tabBtnForecast && DOM.tabBtnDropped) {
     DOM.tabBtnReconcile.addEventListener("click", () => {
       DOM.tabBtnReconcile.classList.add("active");
+      DOM.tabBtnForecast.classList.remove("active");
       DOM.tabBtnDropped.classList.remove("active");
       DOM.tabReconcile.style.display = "flex";
+      DOM.tabForecast.style.display = "none";
       DOM.tabDropped.style.display = "none";
       STATE.activeMainTab = "tabReconcile";
+    });
+    DOM.tabBtnForecast.addEventListener("click", () => {
+      DOM.tabBtnForecast.classList.add("active");
+      DOM.tabBtnReconcile.classList.remove("active");
+      DOM.tabBtnDropped.classList.remove("active");
+      DOM.tabForecast.style.display = "flex";
+      DOM.tabReconcile.style.display = "none";
+      DOM.tabDropped.style.display = "none";
+      STATE.activeMainTab = "tabForecast";
+      renderForecastTab();
     });
     DOM.tabBtnDropped.addEventListener("click", () => {
       DOM.tabBtnDropped.classList.add("active");
       DOM.tabBtnReconcile.classList.remove("active");
+      DOM.tabBtnForecast.classList.remove("active");
       DOM.tabDropped.style.display = "flex";
       DOM.tabReconcile.style.display = "none";
+      DOM.tabForecast.style.display = "none";
       STATE.activeMainTab = "tabDropped";
       // Auto-load if url is set and data not loaded
       if (STATE.settings.droppedSheetUrl && STATE.dropped.data.length === 0) {
@@ -594,6 +612,7 @@ async function autoLoadRepoData() {
     if (resHistory.ok) {
       const history = await resHistory.json();
       if (history && history.length > 0) {
+        STATE.history = history;
         logToConsole(`Đã tìm thấy lịch sử gồm ${history.length} phiên đối soát.`);
         
         // Populate DOM.filterDate dropdown
@@ -1474,6 +1493,9 @@ function toggleTheme() {
     drawStoreChart();
     drawCategoryChart();
   }
+  if (STATE.activeMainTab === "tabForecast") {
+    renderForecastTab();
+  }
 }
 
 // 14. Dropped Details Tab Features
@@ -2015,4 +2037,277 @@ function exportDroppedDetailsToCsv() {
   document.body.removeChild(link);
   
   logToConsole("Đã xuất danh sách chi tiết rớt hàng ra CSV thành công.", "success");
+}
+
+function parseDaFromHtml(htmlText) {
+  const startMarker = "const DA = [";
+  const endMarker = "];";
+  
+  const startIdx = htmlText.indexOf(startMarker);
+  if (startIdx === -1) {
+    throw new Error("Không tìm thấy dữ liệu 'const DA = [' trong báo cáo Đông Mát.");
+  }
+  
+  const endIdx = htmlText.indexOf(endMarker, startIdx);
+  if (endIdx === -1) {
+    throw new Error("Dữ liệu báo cáo Đông Mát không đúng định dạng (thiếu '];').");
+  }
+  
+  const arrayText = htmlText.substring(startIdx + startMarker.length, endIdx).trim();
+  
+  try {
+    return new Function(`return [${arrayText}]`)();
+  } catch (e) {
+    console.warn("Lỗi khi parse khối DA, chuyển sang parse từng dòng:", e);
+    const lines = arrayText.split("\n");
+    const results = [];
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+      if (line.endsWith(",")) line = line.slice(0, -1);
+      try {
+        const obj = new Function(`return ${line}`)();
+        if (obj) results.push(obj);
+      } catch (err) {}
+    }
+    return results;
+  }
+}
+
+async function renderForecastTab() {
+  // Show loading state
+  document.getElementById("kpiAvgActual").innerText = "Đang tải...";
+  document.getElementById("kpiAvgBooking").innerText = "Booking: Đang tải...";
+  document.getElementById("kpiMaxActual").innerText = "Đang tải...";
+  document.getElementById("kpiMaxActualDate").innerText = "Ngày: Đang tải...";
+  document.getElementById("kpiMinActual").innerText = "Đang tải...";
+  document.getElementById("kpiMinActualDate").innerText = "Ngày: Đang tải...";
+  document.getElementById("kpiExceededDays").innerText = "Đang tải...";
+
+  try {
+    const htmlUrl = `../Report nhap.xuat/Output/Nhập.Xuất Đông Mát.html?_=${Date.now()}`;
+    const res = await fetch(htmlUrl);
+    if (!res.ok) {
+      throw new Error(`Không thể tải file báo cáo: ${res.statusText}`);
+    }
+    const htmlText = await res.text();
+    const historyData = parseDaFromHtml(htmlText);
+
+    if (!historyData || historyData.length === 0) {
+      throw new Error("Không thể trích xuất dữ liệu so sánh sản lượng từ báo cáo.");
+    }
+
+    // Filter out totals and off days
+    const validHistory = historyData.filter(day => !day.off && !day.wkTotal && !day.mTotal && day.w);
+
+    if (validHistory.length === 0) {
+      throw new Error("Không tìm thấy dữ liệu hợp lệ trong lịch sử.");
+    }
+
+    // Calculate statistics
+    let totalKfm = 0;
+    let totalAba = 0;
+    let maxAba = -1;
+    let maxAbaDate = "";
+    let minAba = Infinity;
+    let minAbaDate = "";
+    let exceededDaysCount = 0;
+
+    validHistory.forEach(day => {
+      // Booking theo tồn is bkTon, Actual is tx
+      const bookingTon = day.bkTon || 0;
+      const actualTx = day.tx || 0;
+      totalKfm += bookingTon;
+      totalAba += actualTx;
+
+      // Check Max Actual
+      if (actualTx > maxAba) {
+        maxAba = actualTx;
+        maxAbaDate = day.d;
+      }
+      // Check Min Actual
+      if (actualTx < minAba) {
+        minAba = actualTx;
+        minAbaDate = day.d;
+      }
+
+      // Check if difference >= 10%
+      if (bookingTon === 0) {
+        if (actualTx > 0) {
+          exceededDaysCount++;
+        }
+      } else {
+        const diffPct = (Math.abs(actualTx - bookingTon) / bookingTon) * 100;
+        if (diffPct >= 10) {
+          exceededDaysCount++;
+        }
+      }
+    });
+
+    const count = validHistory.length;
+    const avgKfm = Math.round(totalKfm / count);
+    const avgAba = Math.round(totalAba / count);
+
+    // Helper formatter
+    const fmt = (num) => String(num).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    // Update KPI displays
+    document.getElementById("kpiAvgActual").innerText = fmt(avgAba);
+    document.getElementById("kpiAvgBooking").innerText = `Booking: ${fmt(avgKfm)}`;
+    document.getElementById("kpiMaxActual").innerText = fmt(maxAba);
+    document.getElementById("kpiMaxActualDate").innerText = `Ngày: ${maxAbaDate}`;
+    document.getElementById("kpiMinActual").innerText = fmt(minAba);
+    document.getElementById("kpiMinActualDate").innerText = `Ngày: ${minAbaDate}`;
+    document.getElementById("kpiExceededDays").innerText = `${exceededDaysCount} ngày`;
+
+    // Prepare Chart.js Data
+    const labels = validHistory.map(day => day.d);
+    const bookingData = validHistory.map(day => day.bkTon || 0);
+    const actualData = validHistory.map(day => day.tx || 0);
+
+    // Background colors array for Actual Shipped dataset
+    const actualBarColors = validHistory.map(day => {
+      const bookingTon = day.bkTon || 0;
+      const actualTx = day.tx || 0;
+      let exceeded = false;
+      if (bookingTon === 0) {
+        exceeded = actualTx > 0;
+      } else {
+        exceeded = ((Math.abs(actualTx - bookingTon) / bookingTon) * 100) >= 10;
+      }
+      return exceeded ? "#ef4444" : "#8b5cf6";
+    });
+
+    // Render or update chart
+    const ctx = document.getElementById("forecastChart").getContext("2d");
+    
+    if (STATE.charts.forecast) {
+      STATE.charts.forecast.destroy();
+    }
+
+    // Detect theme
+    const isLight = document.body.classList.contains("light-mode");
+    const isDark = !isLight;
+    const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)";
+    const textColor = isDark ? "#94a3b8" : "#64748b";
+
+    STATE.charts.forecast = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Booking theo tồn",
+            data: bookingData,
+            backgroundColor: "#3b82f6", // Blue
+            borderRadius: 4,
+            maxBarThickness: 40
+          },
+          {
+            label: "Thực xuất",
+            data: actualData,
+            backgroundColor: actualBarColors,
+            borderRadius: 4,
+            maxBarThickness: 40
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: textColor,
+              font: {
+                family: "'Outfit', sans-serif",
+                weight: "600"
+              }
+            }
+          },
+          y: {
+            grid: {
+              color: gridColor
+            },
+            ticks: {
+              color: textColor,
+              font: {
+                family: "'Outfit', sans-serif"
+              },
+              callback: function(value) {
+                return fmt(value);
+              }
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: isDark ? "#1e293b" : "#ffffff",
+            titleColor: isDark ? "#ffffff" : "#0f172a",
+            bodyColor: isDark ? "#cbd5e1" : "#334155",
+            borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+            borderWidth: 1,
+            padding: 12,
+            boxPadding: 6,
+            titleFont: {
+              family: "'Outfit', sans-serif",
+              size: 14,
+              weight: "700"
+            },
+            bodyFont: {
+              family: "'Outfit', sans-serif"
+            },
+            callbacks: {
+              label: function(context) {
+                const val = context.raw;
+                return ` ${context.dataset.label}: ${fmt(val)}`;
+              },
+              footer: function(tooltipItems) {
+                const dataIndex = tooltipItems[0].dataIndex;
+                const bkTonVal = bookingData[dataIndex];
+                const txVal = actualData[dataIndex];
+                const diff = txVal - bkTonVal;
+                
+                let pct = 0;
+                if (bkTonVal > 0) {
+                  pct = ((txVal - bkTonVal) / bkTonVal) * 100;
+                } else if (txVal > 0) {
+                  pct = 100;
+                }
+                
+                const diffText = diff >= 0 ? `+${fmt(diff)}` : fmt(diff);
+                const pctText = pct >= 0 ? `+${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`;
+                
+                return `Chênh lệch: ${diffText} (${pctText})`;
+              }
+            },
+            footerFont: {
+              family: "'Outfit', sans-serif",
+              weight: "700"
+            },
+            footerColor: isDark ? "#ef4444" : "#dc2626"
+          }
+        }
+      }
+    });
+
+  } catch (err) {
+    console.error("Lỗi khi render biểu đồ so sánh sản lượng:", err);
+    logToConsole(`Lỗi tải biểu đồ so sánh sản lượng: ${err.message}`, "error");
+    
+    // Display error state on KPIs
+    document.getElementById("kpiAvgActual").innerText = "Lỗi";
+    document.getElementById("kpiAvgBooking").innerText = "Booking: Lỗi";
+    document.getElementById("kpiMaxActual").innerText = "Lỗi";
+    document.getElementById("kpiMaxActualDate").innerText = "Không thể tải dữ liệu";
+    document.getElementById("kpiMinActual").innerText = "Lỗi";
+    document.getElementById("kpiMinActualDate").innerText = "Vui lòng kiểm tra file báo cáo";
+    document.getElementById("kpiExceededDays").innerText = "-- ngày";
+  }
 }

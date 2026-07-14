@@ -659,10 +659,12 @@ namespace ReconcileData
                     // Write status.json
                     try
                     {
+                        decimal totalKfm = kfmDict.Values.Sum();
+                        decimal totalAba = abaDict.Values.Sum();
                         string statusFile = Path.Combine(Path.GetDirectoryName(outFile), "status.json");
                         string dailyStatusFile = Path.Combine(Path.GetDirectoryName(outFile), "status_" + kfmDateStr + ".json");
                         string json = string.Format(
-                            "{{\n  \"lastUpdated\": \"{0}\",\n  \"kfmFile\": \"{1}\",\n  \"kfmDate\": \"{2}\",\n  \"abaFile\": \"{3}\",\n  \"abaDate\": \"{4}\",\n  \"mismatchCount\": {5},\n  \"participatingStores\": {6},\n  \"resultFile\": \"Result_{7}.csv\"\n}}",
+                            "{{\n  \"lastUpdated\": \"{0}\",\n  \"kfmFile\": \"{1}\",\n  \"kfmDate\": \"{2}\",\n  \"abaFile\": \"{3}\",\n  \"abaDate\": \"{4}\",\n  \"mismatchCount\": {5},\n  \"participatingStores\": {6},\n  \"resultFile\": \"Result_{7}.csv\",\n  \"totalKfmQty\": {8},\n  \"totalAbaQty\": {9}\n}}",
                             DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                             Path.GetFileName(kfmFile).Replace("\\", "\\\\").Replace("\"", "\\\""),
                             FormatDate(kfmDateStr),
@@ -670,11 +672,13 @@ namespace ReconcileData
                             FormatDate(abaDateStr),
                             stLechList.Count,
                             allStSet.Count,
-                            kfmDateStr
+                            kfmDateStr,
+                            totalKfm,
+                            totalAba
                         );
                         File.WriteAllText(statusFile, json, Encoding.UTF8);
                         File.WriteAllText(dailyStatusFile, json, Encoding.UTF8);
-                        Console.WriteLine("Da ghi file status va status theo ngay thanh cong!");
+                        Console.WriteLine("Da ghi file status va status theo ngay voi tong so luong KFM/ABA.");
 
                         // Generate/Update history.json dynamically
                         try

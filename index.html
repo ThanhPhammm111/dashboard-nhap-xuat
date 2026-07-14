@@ -114,6 +114,7 @@
       <!-- Tab Navigation -->
       <div class="tabs-header" style="border-bottom: 2px solid var(--border-color); display: flex; gap: 8px; margin-bottom: 24px;">
         <button class="tab-btn active" data-tab="tabReconcile" id="tabBtnReconcile" style="max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">🔄 Đối Soát Xuất Nhập</button>
+        <button class="tab-btn" data-tab="tabForecast" id="tabBtnForecast" style="max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">📊 So Sánh Sản Lượng</button>
         <button class="tab-btn" data-tab="tabDropped" id="tabBtnDropped" style="display: none !important; max-width: 250px; font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; padding: 12px 24px;">⚠️ Chi Tiết Rớt Hàng</button>
       </div>
 
@@ -276,6 +277,53 @@
       </div>
 
     </div> <!-- End tabReconcile -->
+
+    <!-- Tab Content: Forecast/Chart -->
+    <div id="tabForecast" class="tab-content" style="display: none; flex-direction: column; gap: 24px; width: 100%;">
+      
+      <!-- KPI Cards Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; width: 100%;">
+        <div class="card" style="padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border-bottom: 4px solid var(--primary);">
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px;">Trung bình ngày (Thực xuất)</div>
+          <div id="kpiAvgActual" style="font-size: 1.8rem; font-weight: 800; color: var(--primary); margin-bottom: 4px;">0</div>
+          <div id="kpiAvgBooking" style="font-size: 0.85rem; color: var(--text-secondary);">Booking: 0</div>
+        </div>
+        
+        <div class="card" style="padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border-bottom: 4px solid var(--success);">
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px;">Thực xuất cao nhất</div>
+          <div id="kpiMaxActual" style="font-size: 1.8rem; font-weight: 800; color: var(--success); margin-bottom: 4px;">0</div>
+          <div id="kpiMaxActualDate" style="font-size: 0.85rem; color: var(--text-secondary);">Ngày: --</div>
+        </div>
+
+        <div class="card" style="padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border-bottom: 4px solid #f59e0b;">
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px;">Thực xuất thấp nhất</div>
+          <div id="kpiMinActual" style="font-size: 1.8rem; font-weight: 800; color: #f59e0b; margin-bottom: 4px;">0</div>
+          <div id="kpiMinActualDate" style="font-size: 0.85rem; color: var(--text-secondary);">Ngày: --</div>
+        </div>
+
+        <div class="card" style="padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border-bottom: 4px solid var(--danger);">
+          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px;">Số ngày lệch >= 10%</div>
+          <div id="kpiExceededDays" style="font-size: 1.8rem; font-weight: 800; color: var(--danger); margin-bottom: 4px;">0 ngày</div>
+          <div style="font-size: 0.85rem; color: var(--text-secondary);">Cần kiểm tra lại dữ liệu</div>
+        </div>
+      </div>
+
+      <!-- Chart Container -->
+      <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <h3 class="card-title" style="margin-bottom: 0;">📊 Biểu đồ So Sánh Sản Lượng</h3>
+          <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
+            <span style="display: inline-block; width: 12px; height: 12px; background: #3b82f6; border-radius: 3px; margin-right: 4px;"></span> Booking theo tồn &nbsp;
+            <span style="display: inline-block; width: 12px; height: 12px; background: #8b5cf6; border-radius: 3px; margin-right: 4px;"></span> Thực xuất (Khớp) &nbsp;
+            <span style="display: inline-block; width: 12px; height: 12px; background: #ef4444; border-radius: 3px; margin-right: 4px;"></span> Thực xuất (Lệch >= 10%)
+          </span>
+        </div>
+        <div style="position: relative; height: 380px; width: 100%;">
+          <canvas id="forecastChart"></canvas>
+        </div>
+      </div>
+
+    </div>
 
     <!-- Tab Content: Dropped Details -->
     <div id="tabDropped" class="tab-content" style="display: none; flex-direction: column; gap: 24px; width: 100%;">

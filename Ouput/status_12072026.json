@@ -1,10 +1,12 @@
 ﻿{
-  "lastUpdated": "2026-07-12 20:35:40",
+  "lastUpdated": "2026-07-14 22:02:07",
   "kfmFile": "transfer_12072026-163648.xlsx",
   "kfmDate": "12/07/2026",
   "abaFile": "Chi tiet giao hang ngay 12072026.xlsx",
   "abaDate": "12/07/2026",
   "mismatchCount": 1,
   "participatingStores": 201,
-  "resultFile": "Result_12072026.csv"
+  "resultFile": "Result_12072026.csv",
+  "totalKfmQty": 129212,
+  "totalAbaQty": 129548
 }

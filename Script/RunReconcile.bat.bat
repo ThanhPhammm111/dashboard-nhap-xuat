@@ -6,7 +6,7 @@ set "TELEGRAM_TOKEN=8902427051:AAHpWe9UxoGplPd6XbkjCsc5A7a8Y2LMs7Y"
 REM Danh sach Chat ID, cach nhau bang dau phay. Them Group ID moi vao day.
 REM   - 5958913327 = Inbox ca nhan cua ban
 REM   - Them Group ID (so am) phia sau, vi du: 5958913327,-100123456789
-set "TELEGRAM_CHATID=5958913327"
+set "TELEGRAM_CHATID=5958913327,-4511126388"
 
 set "SCRIPT_DIR=%~dp0"
 for %%I in ("%~dp0..") do set "BASE_DIR=%%~fI"
