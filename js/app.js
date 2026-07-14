@@ -2077,7 +2077,7 @@ function parseDaFromHtml(htmlText) {
 async function renderForecastTab() {
   // Show loading state
   document.getElementById("kpiAvgActual").innerText = "Đang tải...";
-  document.getElementById("kpiAvgBooking").innerText = "Booking: Đang tải...";
+  document.getElementById("kpiAvgBooking").innerText = "Dự báo (FC): Đang tải...";
   document.getElementById("kpiMaxActual").innerText = "Đang tải...";
   document.getElementById("kpiMaxActualDate").innerText = "Ngày: Đang tải...";
   document.getElementById("kpiMinActual").innerText = "Đang tải...";
@@ -2105,7 +2105,7 @@ async function renderForecastTab() {
     }
 
     // Calculate statistics
-    let totalKfm = 0;
+    let totalFc = 0;
     let totalAba = 0;
     let maxAba = -1;
     let maxAbaDate = "";
@@ -2114,10 +2114,10 @@ async function renderForecastTab() {
     let exceededDaysCount = 0;
 
     validHistory.forEach(day => {
-      // Booking theo tồn is bkTon, Actual is tx
-      const bookingTon = day.bkTon || 0;
+      const fcVal = day.fc || 0;
       const actualTx = day.tx || 0;
-      totalKfm += bookingTon;
+      const bookingTon = day.bkTon || 0;
+      totalFc += fcVal;
       totalAba += actualTx;
 
       // Check Max Actual
@@ -2131,7 +2131,7 @@ async function renderForecastTab() {
         minAbaDate = day.d;
       }
 
-      // Check if difference >= 10%
+      // Check if difference actual vs booking theo tồn >= 10%
       if (bookingTon === 0) {
         if (actualTx > 0) {
           exceededDaysCount++;
@@ -2145,7 +2145,7 @@ async function renderForecastTab() {
     });
 
     const count = validHistory.length;
-    const avgKfm = Math.round(totalKfm / count);
+    const avgFc = Math.round(totalFc / count);
     const avgAba = Math.round(totalAba / count);
 
     // Helper formatter
@@ -2153,19 +2153,19 @@ async function renderForecastTab() {
 
     // Update KPI displays
     document.getElementById("kpiAvgActual").innerText = fmt(avgAba);
-    document.getElementById("kpiAvgBooking").innerText = `Booking: ${fmt(avgKfm)}`;
+    document.getElementById("kpiAvgBooking").innerText = `Dự báo (FC): ${fmt(avgFc)}`;
     document.getElementById("kpiMaxActual").innerText = fmt(maxAba);
     document.getElementById("kpiMaxActualDate").innerText = `Ngày: ${maxAbaDate}`;
     document.getElementById("kpiMinActual").innerText = fmt(minAba);
     document.getElementById("kpiMinActualDate").innerText = `Ngày: ${minAbaDate}`;
     document.getElementById("kpiExceededDays").innerText = `${exceededDaysCount} ngày`;
 
-    // Prepare Chart.js Data
+    // Prepare Chart.js Data (FC vs Actual)
     const labels = validHistory.map(day => day.d);
-    const bookingData = validHistory.map(day => day.bkTon || 0);
+    const fcData = validHistory.map(day => day.fc || 0);
     const actualData = validHistory.map(day => day.tx || 0);
 
-    // Background colors array for Actual Shipped dataset
+    // Background colors array for Actual Shipped dataset (highlight red if actual vs bkTon >= 10%)
     const actualBarColors = validHistory.map(day => {
       const bookingTon = day.bkTon || 0;
       const actualTx = day.tx || 0;
@@ -2197,8 +2197,8 @@ async function renderForecastTab() {
         labels: labels,
         datasets: [
           {
-            label: "Booking theo tồn",
-            data: bookingData,
+            label: "Dự báo (FC)",
+            data: fcData,
             backgroundColor: "#3b82f6", // Blue
             borderRadius: 4,
             maxBarThickness: 40
@@ -2270,28 +2270,31 @@ async function renderForecastTab() {
               },
               footer: function(tooltipItems) {
                 const dataIndex = tooltipItems[0].dataIndex;
-                const bkTonVal = bookingData[dataIndex];
-                const txVal = actualData[dataIndex];
-                const diff = txVal - bkTonVal;
+                const day = validHistory[dataIndex];
+                const fcVal = day.fc || 0;
+                const bkTonVal = day.bkTon || 0;
+                const txVal = day.tx || 0;
                 
-                let pct = 0;
-                if (bkTonVal > 0) {
-                  pct = ((txVal - bkTonVal) / bkTonVal) * 100;
-                } else if (txVal > 0) {
-                  pct = 100;
-                }
+                const diffFc = txVal - fcVal;
+                let pctFc = 0;
+                if (fcVal > 0) pctFc = (diffFc / fcVal) * 100;
                 
-                const diffText = diff >= 0 ? `+${fmt(diff)}` : fmt(diff);
-                const pctText = pct >= 0 ? `+${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`;
+                const diffBk = txVal - bkTonVal;
+                let pctBk = 0;
+                if (bkTonVal > 0) pctBk = (diffBk / bkTonVal) * 100;
                 
-                return `Chênh lệch: ${diffText} (${pctText})`;
+                return [
+                  `Chênh lệch vs FC: ${diffFc >= 0 ? '+' : ''}${fmt(diffFc)} (${pctFc >= 0 ? '+' : ''}${pctFc.toFixed(1)}%)`,
+                  `Chênh lệch vs Bk Tồn: ${diffBk >= 0 ? '+' : ''}${fmt(diffBk)} (${pctBk >= 0 ? '+' : ''}${pctBk.toFixed(1)}%)`
+                ];
               }
             },
             footerFont: {
               family: "'Outfit', sans-serif",
-              weight: "700"
+              size: 11,
+              weight: "600"
             },
-            footerColor: isDark ? "#ef4444" : "#dc2626"
+            footerColor: isDark ? "#94a3b8" : "#64748b"
           }
         }
       }
@@ -2303,7 +2306,7 @@ async function renderForecastTab() {
     
     // Display error state on KPIs
     document.getElementById("kpiAvgActual").innerText = "Lỗi";
-    document.getElementById("kpiAvgBooking").innerText = "Booking: Lỗi";
+    document.getElementById("kpiAvgBooking").innerText = "Dự báo (FC): Lỗi";
     document.getElementById("kpiMaxActual").innerText = "Lỗi";
     document.getElementById("kpiMaxActualDate").innerText = "Không thể tải dữ liệu";
     document.getElementById("kpiMinActual").innerText = "Lỗi";
