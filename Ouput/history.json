@@ -1,11 +1,11 @@
 ﻿[
 {
-  "lastUpdated": "2026-07-14 11:22:55",
-  "kfmFile": "transfer_14072026-112116.xlsx",
+  "lastUpdated": "2026-07-14 11:27:05",
+  "kfmFile": "transfer_14072026-112611.xlsx",
   "kfmDate": "14/07/2026",
   "abaFile": "Chi tiet giao hang ngay 14072026.xlsx",
   "abaDate": "14/07/2026",
-  "mismatchCount": 2,
+  "mismatchCount": 0,
   "participatingStores": 204,
   "resultFile": "Result_14072026.csv"
 },
