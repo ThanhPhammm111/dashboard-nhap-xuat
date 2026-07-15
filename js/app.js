@@ -1426,6 +1426,12 @@ function loadCachedSettings() {
     DOM.sunIcon.style.display = "block";
     DOM.moonIcon.style.display = "none";
   }
+
+  if (window.self !== window.top) {
+    if (DOM.themeToggle) {
+      DOM.themeToggle.style.display = "none";
+    }
+  }
 }
 
 function saveSettings() {
@@ -2317,3 +2323,32 @@ async function renderForecastTab() {
     document.getElementById("kpiExceededDays").innerText = "-- ngày";
   }
 }
+
+// 15. Parent theme integration
+window.addEventListener("message", (event) => {
+  if (event.data && event.data.action === "setTheme") {
+    const isLight = event.data.isLight;
+    if (isLight) {
+      document.body.classList.add("light-mode");
+      if (DOM.sunIcon && DOM.moonIcon) {
+        DOM.sunIcon.style.display = "block";
+        DOM.moonIcon.style.display = "none";
+      }
+    } else {
+      document.body.classList.remove("light-mode");
+      if (DOM.sunIcon && DOM.moonIcon) {
+        DOM.sunIcon.style.display = "none";
+        DOM.moonIcon.style.display = "block";
+      }
+    }
+    // Redraw charts if results loaded
+    if (STATE.results && STATE.results.length > 0) {
+      drawStoreChart();
+      drawCategoryChart();
+    }
+    if (STATE.activeMainTab === "tabForecast") {
+      renderForecastTab();
+    }
+  }
+});
+

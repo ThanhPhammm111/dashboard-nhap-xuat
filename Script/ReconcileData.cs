@@ -13,6 +13,9 @@ namespace ReconcileData
     {
         static void Main(string[] args)
         {
+            System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+            System.Threading.Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+
             if (args.Length < 4)
             {
                 Console.WriteLine("Usage: ReconcileData.exe <DataST.xlsx/csv> <KFM.xlsx/csv> <ABA.xlsx/csv> <Result.csv>");
@@ -124,7 +127,10 @@ namespace ReconcileData
                         string key = stAbbr + "_" + product; // Use underscore as separator for clarity
                         
                         decimal qty = 0;
-                        decimal.TryParse(qtyStr, out qty);
+                        if (decimal.TryParse(qtyStr, out qty))
+                        {
+                            qty = Math.Round(qty, 4);
+                        }
 
                         if (!string.IsNullOrEmpty(productName) && !productNameDict.ContainsKey(product))
                             productNameDict[product] = productName;
@@ -174,7 +180,10 @@ namespace ReconcileData
                         string key = stCode + "_" + product;
 
                         decimal qty = 0;
-                        decimal.TryParse(qtyStr, out qty);
+                        if (decimal.TryParse(qtyStr, out qty))
+                        {
+                            qty = Math.Round(qty, 4);
+                        }
 
                         if (!string.IsNullOrEmpty(productName) && !productNameDict.ContainsKey(product))
                             productNameDict[product] = productName;
