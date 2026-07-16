@@ -1,5 +1,4 @@
 @echo off
-chcp 65001 > nul
 setlocal
 
 set "TELEGRAM_TOKEN=8902427051:AAHpWe9UxoGplPd6XbkjCsc5A7a8Y2LMs7Y"
@@ -27,6 +26,11 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
     echo.
     echo Dang chay chuong trinh doi soat...
     "%SCRIPT_DIR%ReconcileData.exe" "%BASE_DIR%\Data\Data ST" "%BASE_DIR%\Data\KFM" "%BASE_DIR%\Data\ABA" "%BASE_DIR%\Ouput\Result.csv" "%TELEGRAM_TOKEN%" "%TELEGRAM_CHATID%"
+    if %ERRORLEVEL% neq 0 (
+        echo.
+        powershell -Command "Write-Host 'Co loi xay ra trong qua trinh chay doi soat.' -ForegroundColor Red"
+        exit /b 1
+    )
     
     echo.
     echo Dang day du lieu moi len GitHub...
@@ -37,9 +41,19 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
     popd
 
     echo.
+    echo Dang deploy du lieu doi soat sang Dashboard tong...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%deploy_doi_soat.ps1"
+    if %ERRORLEVEL% neq 0 (
+        echo.
+        powershell -Command "Write-Host 'Co loi xay ra khi deploy du lieu sang dashboard.' -ForegroundColor Red"
+        exit /b 1
+    )
+
+    echo.
     echo Dang mo Bao Cao Canh Bao...
     start "" "%BASE_DIR%\Ouput\BaoCao_CanhBao.html"
 ) else (
     echo.
-    echo Co loi xay ra khi bien dich.
+    powershell -Command "Write-Host 'Co loi xay ra khi bien dich C#.' -ForegroundColor Red"
+    exit /b 1
 )

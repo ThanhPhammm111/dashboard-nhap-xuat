@@ -296,7 +296,32 @@ window.addEventListener("DOMContentLoaded", () => {
   initDroppedDetails();
   checkReadyToRun();
   logToConsole("Hệ thống đã khởi động. Sẵn sàng nạp dữ liệu.");
-  autoLoadRepoData(); // Tự động nạp dữ liệu từ máy chủ
+  
+  if (window.location.protocol === "file:") {
+    logToConsole("CẢNH BÁO: Trình duyệt chặn tải dữ liệu tự động khi mở trực tiếp file://. Hãy xem trên link GitHub Pages hoặc kéo thả file thủ công.", "error");
+    const emptyStateEl = document.querySelector(".empty-state");
+    if (emptyStateEl) {
+      const warningBanner = document.createElement("div");
+      warningBanner.style.background = "rgba(239, 68, 68, 0.1)";
+      warningBanner.style.color = "var(--danger, #ef4444)";
+      warningBanner.style.padding = "16px";
+      warningBanner.style.borderRadius = "12px";
+      warningBanner.style.marginTop = "20px";
+      warningBanner.style.fontWeight = "600";
+      warningBanner.style.textAlign = "left";
+      warningBanner.style.border = "1px solid rgba(239, 68, 68, 0.25)";
+      warningBanner.innerHTML = `
+        ⚠️ <b>LƯU Ý:</b> Bạn đang mở file Dashboard cục bộ (file://). 
+        Trình duyệt web sẽ chặn không cho trang web tự động tải dữ liệu từ máy tính.<br><br>
+        Để xem báo cáo tự động, hãy truy cập link: 
+        <a href="https://thanhphammm111.github.io/dashboard-nhap-xuat/" target="_blank" style="color: var(--primary, #3b82f6); text-decoration: underline;">https://thanhphammm111.github.io/dashboard-nhap-xuat/</a><br><br>
+        Hoặc kéo thả thủ công các file Excel ở cột bên trái vào để xem đối soát trực tiếp.
+      `;
+      emptyStateEl.appendChild(warningBanner);
+    }
+  } else {
+    autoLoadRepoData(); // Tự động nạp dữ liệu từ máy chủ
+  }
 });
 
 // Setup All Event Listeners
