@@ -609,7 +609,7 @@ namespace ReconcileData
                     if (stLechList.Count > 0) {
                         tgMsg.AppendLine("\n📋 <b>Danh sách ST lệch:</b> " + string.Join(", ", stLechList.OrderBy(x => x)));
                         tgMsg.AppendLine("\n🔗 <b>Chi tiết đối soát xem tại Dashboard:</b>");
-                        tgMsg.AppendLine("https://thanhphammm111.github.io/dashboard-nhap-xuat/");
+                        tgMsg.AppendLine("https://thanhphammm111.github.io/transport_daily_report/external/doi_soat/");
                     }
 
                     try {

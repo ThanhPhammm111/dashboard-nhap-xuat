@@ -314,7 +314,7 @@ window.addEventListener("DOMContentLoaded", () => {
         ⚠️ <b>LƯU Ý:</b> Bạn đang mở file Dashboard cục bộ (file://). 
         Trình duyệt web sẽ chặn không cho trang web tự động tải dữ liệu từ máy tính.<br><br>
         Để xem báo cáo tự động, hãy truy cập link: 
-        <a href="https://thanhphammm111.github.io/dashboard-nhap-xuat/" target="_blank" style="color: var(--primary, #3b82f6); text-decoration: underline;">https://thanhphammm111.github.io/dashboard-nhap-xuat/</a><br><br>
+        <a href="https://thanhphammm111.github.io/transport_daily_report/external/doi_soat/" target="_blank" style="color: var(--primary, #3b82f6); text-decoration: underline;">https://thanhphammm111.github.io/transport_daily_report/external/doi_soat/</a><br><br>
         Hoặc kéo thả thủ công các file Excel ở cột bên trái vào để xem đối soát trực tiếp.
       `;
       emptyStateEl.appendChild(warningBanner);
@@ -1368,7 +1368,7 @@ async function sendTelegramReport() {
     if (mismatchedStList.length > 0) {
       msg += `\n\n📋 *Danh sách ST lệch:* ${mismatchedStList.join(", ")}`;
       msg += `\n\n🔗 *Chi tiết đối soát xem tại Dashboard:*`;
-      msg += `\nhttps://thanhphammm111.github.io/dashboard-nhap-xuat/`;
+      msg += `\nhttps://thanhphammm111.github.io/transport_daily_report/external/doi_soat/`;
     }
   }
   
