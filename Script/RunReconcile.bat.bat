@@ -41,11 +41,20 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
     popd
 
     echo.
-    echo Dang deploy du lieu doi soat sang Dashboard tong...
+    echo Dang deploy du lieu doi soat sang Dashboard tong (GitHub Pages)...
     powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%deploy_doi_soat.ps1"
     if %ERRORLEVEL% neq 0 (
         echo.
-        powershell -Command "Write-Host 'Co loi xay ra khi deploy du lieu sang dashboard.' -ForegroundColor Red"
+        powershell -Command "Write-Host 'Co loi xay ra khi deploy du lieu sang dashboard GitHub Pages.' -ForegroundColor Red"
+        exit /b 1
+    )
+
+    echo.
+    echo Dang deploy du lieu doi soat sang Dashboard GitLab (app-scm.kfm.vn)...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%deploy_to_gitlab.ps1"
+    if %ERRORLEVEL% neq 0 (
+        echo.
+        powershell -Command "Write-Host 'Co loi xay ra khi deploy du lieu sang GitLab (app-scm.kfm.vn).' -ForegroundColor Red"
         exit /b 1
     )
 

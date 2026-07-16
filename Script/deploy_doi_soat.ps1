@@ -34,7 +34,7 @@ New-Item -ItemType Directory -Path (Join-Path $targetDir "Ouput") -Force | Out-N
 Write-Host "Copying HTML, CSS and JS files..." -ForegroundColor Cyan
 Copy-Item -LiteralPath (Join-Path $baseDir "index.html") -Destination (Join-Path $targetDir "index.html") -Force
 Copy-Item -LiteralPath (Join-Path $baseDir "css\style.css") -Destination (Join-Path $targetDir "css\style.css") -Force
-Copy-Item -LiteralPath (Join-Path $baseDir "js\app.js") -Destination (Join-Path $targetDir "js\app.js") -Force
+Copy-Item -Path (Join-Path $baseDir "js\*") -Destination (Join-Path $targetDir "js\") -Recurse -Force
 
 # 5. Copy reconciliation output results
 Write-Host "Copying result CSVs and JSONs from Ouput..." -ForegroundColor Cyan
