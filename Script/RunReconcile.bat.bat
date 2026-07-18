@@ -74,16 +74,7 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
     if exist "C:\temp_restore\clean_kfm.csv" (
         echo.
         echo Dang day du lieu thuc xuat len Google Sheets...
-        pushd "C:\temp_restore\reconcile_script"
-        
-        REM Dam bao thu vien googleapis da duoc cai dat
-        if not exist "node_modules\googleapis" (
-            echo Dang cai dat thu vien Google API...
-            call npm install googleapis --no-audit --no-fund >nul
-        )
-        
         call node "%SCRIPT_DIR%upload_to_sheets.js" "C:\temp_restore\clean_kfm.csv"
-        popd
         del "C:\temp_restore\clean_kfm.csv"
     )
     

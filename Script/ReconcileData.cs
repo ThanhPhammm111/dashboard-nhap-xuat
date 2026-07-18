@@ -1145,6 +1145,7 @@ namespace ReconcileData
             int colQty = FindCol(header, new[] { "Số lượng chuyển", "So luong chuyen", "Số lượng", "So luong" });
             int colSlipCode = FindCol(header, new[] { "Mã chuyển hàng", "Ma chuyen hang", "Mã phiếu", "Ma phieu" });
             int colDate = FindCol(header, new[] { "Ngày chuyển hàng", "Ngay chuyen hang", "Ngày tạo", "Ngay tao", "Ngày chuyển", "Ngay chuyen" });
+            int colCate = FindCol(header, new[] { "Nhóm hàng", "Nhom hang", "Category", "Loại hàng", "Loai hang" });
 
             // Fallbacks if not found
             if (colBranch == -1) colBranch = 3;
@@ -1154,16 +1155,17 @@ namespace ReconcileData
             if (colQty == -1) colQty = 10;
             if (colSlipCode == -1) colSlipCode = 2;
             if (colDate == -1) colDate = 0;
+            if (colCate == -1) colCate = 6;
 
             var cleanRows = new List<string[]>();
-            // Add Header
-            cleanRows.Add(new[] { "Ngày", "Chi nhánh nhận", "Mã hàng", "Tên hàng", "Đơn vị tính", "Số lượng chuyển", "Mã chuyển hàng" });
+            // Add Header (exact 8 columns in requested order)
+            cleanRows.Add(new[] { "Ngày chuyển hàng", "Loại hàng", "Mã chuyển hàng", "Chi nhánh nhận", "Mã hàng", "Tên hàng", "Đơn vị tính", "Số lượng chuyển" });
 
             string currentSlipDate = "";
             for (int i = 1; i < kfmData.Count; i++)
             {
                 var row = kfmData[i];
-                if (row.Length > Math.Max(colBranch, Math.Max(colProduct, Math.Max(colProductName, Math.Max(colUom, Math.Max(colQty, colSlipCode))))))
+                if (row.Length > Math.Max(colBranch, Math.Max(colProduct, Math.Max(colProductName, Math.Max(colUom, Math.Max(colQty, Math.Max(colSlipCode, colCate)))))))
                 {
                     // Date tracking (same as reconciliation to ensure we only get rows for the target date)
                     if (row.Length > colDate)
@@ -1206,9 +1208,11 @@ namespace ReconcileData
                     string uom = row[colUom].Trim();
                     string qty = row[colQty].Trim();
                     string slipCode = row[colSlipCode].Trim();
+                    string rawCate = row[colCate].Trim();
+                    string category = NormalizeCategory(rawCate);
 
                     string formattedDate = FormatDate(kfmDateStr);
-                    cleanRows.Add(new[] { formattedDate, branch, product, productName, uom, qty, slipCode });
+                    cleanRows.Add(new[] { formattedDate, "", slipCode, branch, product, productName, uom, qty });
                 }
             }
 

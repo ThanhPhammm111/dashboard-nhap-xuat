@@ -1,22 +1,12 @@
-const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
 
 // Configuration
-const keyPath = path.join(__dirname, 'service_account.json');
 const csvPath = process.argv[2] || 'C:\\temp_restore\\clean_kfm.csv';
-const spreadsheetId = '1PbJeGNX5GRz6vCdEnzhVQ439Y2JWYvWBicrxgV72Xlo';
-const sheetName = 'DATA Thực xuất';
-
-if (!fs.existsSync(keyPath)) {
-  console.error('\n=== GOOGLE SHEETS UPLOAD FAILED ===');
-  console.error(`Loi: Khong tim thay file ${keyPath}`);
-  console.error('Vui long tao va dat file service_account.json vao thu muc Script theo huong dan.');
-  process.exit(1);
-}
+const webAppUrl = 'https://script.google.com/macros/s/AKfycbzaVLooO814joo92lj9Bt4eQ4UGCJ52o0SpdwSzds_jN6P1hpsf9-oJRRc0e_4JIZ2fZg/exec';
 
 if (!fs.existsSync(csvPath)) {
-  console.error('\n=== GOOGLE SHEETS UPLOAD FAILED ===');
+  console.error(`\n=== GOOGLE SHEETS UPLOAD FAILED ===`);
   console.error(`Loi: Khong tim thay file CSV tai ${csvPath}`);
   process.exit(1);
 }
@@ -56,49 +46,30 @@ async function upload() {
   console.log(`\n=== UPLOADING TO GOOGLE SHEETS ===`);
   console.log(`Doc du lieu tu: ${csvPath}`);
   const csvContent = fs.readFileSync(csvPath, 'utf8');
-  const values = parseCsv(csvContent);
+  const data = parseCsv(csvContent);
 
-  if (values.length <= 1) {
+  if (data.length <= 1) {
     console.log('Khong co du lieu thuc te nao de day len Sheet (chi co dong Tieu de). Bo qua.');
     return;
   }
 
-  console.log('Ket noi den Google Sheets API...');
-  const auth = new google.auth.GoogleAuth({
-    keyFile: keyPath,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  console.log('Dang gui du lieu len Google Sheets qua Apps Script...');
+  const response = await fetch(webAppUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
   });
-  
-  const sheets = google.sheets({ version: 'v4', auth });
 
-  // Check if the target sheet already has data (headers or rows)
-  console.log(`Kiem tra trang thai trang tinh [${sheetName}]...`);
-  let hasData = false;
-  try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `${sheetName}!A1:B2`,
-    });
-    hasData = response.data.values && response.data.values.length > 0;
-  } catch (err) {
-    console.log(`Khong the doc du lieu kiem tra (co the Sheet rong). Thu tu dong tao moi.`);
+  const text = await response.text();
+  console.log(`Ket qua phan hoi tu Google Apps Script: ${text}`);
+
+  if (text.includes('SUCCESS')) {
+    console.log('=== GOOGLE SHEETS UPLOAD SUCCESSFUL ===\n');
+  } else {
+    throw new Error(`Google Apps Script khong tra ve SUCCESS. Chi tiet: ${text}`);
   }
-
-  // If sheet has data, skip appending the header row (row index 0)
-  const dataToAppend = hasData ? values.slice(1) : values;
-
-  console.log(`Dang add va ghi them (append) ${dataToAppend.length} dong vao [${sheetName}]...`);
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: `${sheetName}!A1`,
-    valueInputOption: 'USER_ENTERED',
-    insertDataOption: 'INSERT_ROWS',
-    resource: {
-      values: dataToAppend
-    }
-  });
-
-  console.log('=== GOOGLE SHEETS UPLOAD SUCCESSFUL ===\n');
 }
 
 upload().catch(err => {
