@@ -694,7 +694,7 @@ namespace ReconcileData
                         File.Copy(abaFile, abaTarget, true);
                     }
 
-                    // Archive KFM
+                    // Archive KFM (Clean columns if 100% match)
                     string dateStamp = DateTime.Now.ToString("yyyy-MM-dd");
                     string archiveDir = Path.Combine(rootDir, "Archive", dateStamp);
                     if (!Directory.Exists(archiveDir)) Directory.CreateDirectory(archiveDir);
@@ -703,7 +703,17 @@ namespace ReconcileData
                     {
                         string archiveFile = Path.Combine(archiveDir, Path.GetFileName(kfmFile));
                         if (File.Exists(archiveFile)) File.Delete(archiveFile);
-                        File.Move(kfmFile, archiveFile);
+                        
+                        if (stLechList.Count == 0)
+                        {
+                            Console.WriteLine("Doi soat thanh cong 100%. Dang loc cot va luu tru file KFM sach...");
+                            CleanAndArchiveKfm(kfmFile, archiveFile, kfmDateStr);
+                            File.Delete(kfmFile);
+                        }
+                        else
+                        {
+                            File.Move(kfmFile, archiveFile);
+                        }
                         Console.WriteLine("Da luu tru file KFM: " + Path.GetFileName(kfmFile));
                     }
 
@@ -1120,6 +1130,187 @@ namespace ReconcileData
                 client.Encoding = Encoding.UTF8;
                 client.UploadString(url, postData);
             }
+        }
+
+        static void CleanAndArchiveKfm(string srcFile, string destFile, string kfmDateStr)
+        {
+            var kfmData = ReadExcelOrCsv(srcFile);
+            if (kfmData.Count < 1) return;
+
+            var header = kfmData[0];
+            int colBranch = FindCol(header, new[] { "Chi nhánh nhận", "Chi nhanh nhan" });
+            int colProduct = FindCol(header, new[] { "Mã hàng", "Ma hang", "SKU" });
+            int colProductName = FindCol(header, new[] { "Tên hàng", "Ten hang" });
+            int colUom = FindCol(header, new[] { "Đơn vị tính", "Don vi tinh", "Đơn vị", "Don vi" });
+            int colQty = FindCol(header, new[] { "Số lượng chuyển", "So luong chuyen", "Số lượng", "So luong" });
+            int colSlipCode = FindCol(header, new[] { "Mã chuyển hàng", "Ma chuyen hang", "Mã phiếu", "Ma phieu" });
+            int colDate = FindCol(header, new[] { "Ngày chuyển hàng", "Ngay chuyen hang", "Ngày tạo", "Ngay tao", "Ngày chuyển", "Ngay chuyen" });
+
+            // Fallbacks if not found
+            if (colBranch == -1) colBranch = 3;
+            if (colProduct == -1) colProduct = 7;
+            if (colProductName == -1) colProductName = 8;
+            if (colUom == -1) colUom = 9;
+            if (colQty == -1) colQty = 10;
+            if (colSlipCode == -1) colSlipCode = 2;
+            if (colDate == -1) colDate = 0;
+
+            var cleanRows = new List<string[]>();
+            // Add Header
+            cleanRows.Add(new[] { "Chi nhánh nhận", "Mã hàng", "Tên hàng", "Đơn vị tính", "Số lượng chuyển", "Mã chuyển hàng" });
+
+            string currentSlipDate = "";
+            for (int i = 1; i < kfmData.Count; i++)
+            {
+                var row = kfmData[i];
+                if (row.Length > Math.Max(colBranch, Math.Max(colProduct, Math.Max(colProductName, Math.Max(colUom, Math.Max(colQty, colSlipCode))))))
+                {
+                    // Date tracking (same as reconciliation to ensure we only get rows for the target date)
+                    if (row.Length > colDate)
+                    {
+                        string dVal = row[colDate].Trim();
+                        if (!string.IsNullOrEmpty(dVal))
+                        {
+                            var dMatch = System.Text.RegularExpressions.Regex.Match(dVal, @"\d{2}/\d{2}/\d{4}");
+                            if (dMatch.Success)
+                            {
+                                currentSlipDate = dMatch.Value.Replace("/", "");
+                            }
+                            else
+                            {
+                                var dMatch2 = System.Text.RegularExpressions.Regex.Match(dVal, @"\d{4}-\d{2}-\d{2}");
+                                if (dMatch2.Success)
+                                {
+                                    string[] p = dMatch2.Value.Split('-');
+                                    currentSlipDate = p[2] + p[1] + p[0];
+                                }
+                            }
+                        }
+                    }
+
+                    // Skip row if it doesn't match target date
+                    if (!string.IsNullOrEmpty(kfmDateStr) && !string.IsNullOrEmpty(currentSlipDate) && currentSlipDate != kfmDateStr)
+                    {
+                        continue;
+                    }
+
+                    string product = row[colProduct].Trim();
+                    // Skip product starting with C (case-insensitive)
+                    if (product.StartsWith("C", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    string branch = row[colBranch].Trim();
+                    string productName = row[colProductName].Trim();
+                    string uom = row[colUom].Trim();
+                    string qty = row[colQty].Trim();
+                    string slipCode = row[colSlipCode].Trim();
+
+                    cleanRows.Add(new[] { branch, product, productName, uom, qty, slipCode });
+                }
+            }
+
+            // Write to new XLSX
+            CreateCleanXlsx(destFile, cleanRows);
+        }
+
+        static void CreateCleanXlsx(string outPath, List<string[]> rows)
+        {
+            if (File.Exists(outPath)) File.Delete(outPath);
+            using (ZipArchive zip = ZipFile.Open(outPath, ZipArchiveMode.Create))
+            {
+                // 1. [Content_Types].xml
+                var entry = zip.CreateEntry("[Content_Types].xml");
+                using (var sw = new StreamWriter(entry.Open(), Encoding.UTF8))
+                {
+                    sw.Write(@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<Types xmlns=""http://schemas.openxmlformats.org/package/2006/content-types"">
+  <Default Extension=""rels"" ContentType=""application/vnd.openxmlformats-package.relationships+xml""/>
+  <Default Extension=""xml"" ContentType=""application/xml""/>
+  <Override PartName=""/xl/workbook.xml"" ContentType=""application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml""/>
+  <Override PartName=""/xl/worksheets/sheet1.xml"" ContentType=""application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml""/>
+</Types>");
+                }
+
+                // 2. _rels/.rels
+                entry = zip.CreateEntry("_rels/.rels");
+                using (var sw = new StreamWriter(entry.Open(), Encoding.UTF8))
+                {
+                    sw.Write(@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<Relationships xmlns=""http://schemas.openxmlformats.org/package/2006/relationships"">
+  <Relationship Id=""rId1"" Type=""http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"" Target=""xl/workbook.xml""/>
+</Relationships>");
+                }
+
+                // 3. xl/workbook.xml
+                entry = zip.CreateEntry("xl/workbook.xml");
+                using (var sw = new StreamWriter(entry.Open(), Encoding.UTF8))
+                {
+                    sw.Write(@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<workbook xmlns=""http://schemas.openxmlformats.org/spreadsheetml/2006/main"" xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"">
+  <sheets>
+    <sheet name=""Sheet1"" sheetId=""1"" r:id=""rId1""/>
+  </sheets>
+</workbook>");
+                }
+
+                // 4. xl/_rels/workbook.xml.rels
+                entry = zip.CreateEntry("xl/_rels/workbook.xml.rels");
+                using (var sw = new StreamWriter(entry.Open(), Encoding.UTF8))
+                {
+                    sw.Write(@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<Relationships xmlns=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"">
+  <Relationship Id=""rId1"" Type=""http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"" Target=""worksheets/sheet1.xml""/>
+</Relationships>");
+                }
+
+                // 5. xl/worksheets/sheet1.xml
+                entry = zip.CreateEntry("xl/worksheets/sheet1.xml");
+                using (var sw = new StreamWriter(entry.Open(), Encoding.UTF8))
+                {
+                    sw.WriteLine(@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>");
+                    sw.WriteLine(@"<worksheet xmlns=""http://schemas.openxmlformats.org/spreadsheetml/2006/main"">");
+                    sw.WriteLine(@"  <sheetData>");
+                    for (int r = 0; r < rows.Count; r++)
+                    {
+                        var rowData = rows[r];
+                        sw.WriteLine(string.Format(@"    <row r=""{0}"">", r + 1));
+                        for (int c = 0; c < rowData.Length; c++)
+                        {
+                            string cellRef = GetCellRef(c, r + 1);
+                            string val = rowData[c];
+                            
+                            decimal numVal;
+                            if (r > 0 && decimal.TryParse(val, out numVal))
+                            {
+                                sw.WriteLine(string.Format(@"      <c r=""{0}""><v>{1}</v></c>", cellRef, numVal));
+                            }
+                            else
+                            {
+                                string escaped = val.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;").Replace("'", "&apos;");
+                                sw.WriteLine(string.Format(@"      <c r=""{0}"" t=""inlineStr""><is><t>{1}</t></is></c>", cellRef, escaped));
+                            }
+                        }
+                        sw.WriteLine(@"    </row>");
+                    }
+                    sw.WriteLine(@"  </sheetData>");
+                    sw.WriteLine(@"</worksheet>");
+                }
+            }
+        }
+
+        static string GetCellRef(int colIdx, int rowNum)
+        {
+            string colName = "";
+            int temp = colIdx + 1;
+            while (temp > 0)
+            {
+                int mod = (temp - 1) % 26;
+                colName = (char)('A' + mod) + colName;
+                temp = (temp - 1) / 26;
+            }
+            return colName + rowNum;
         }
     }
 }
