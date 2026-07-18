@@ -1157,7 +1157,7 @@ namespace ReconcileData
 
             var cleanRows = new List<string[]>();
             // Add Header
-            cleanRows.Add(new[] { "Chi nhánh nhận", "Mã hàng", "Tên hàng", "Đơn vị tính", "Số lượng chuyển", "Mã chuyển hàng" });
+            cleanRows.Add(new[] { "Ngày", "Chi nhánh nhận", "Mã hàng", "Tên hàng", "Đơn vị tính", "Số lượng chuyển", "Mã chuyển hàng" });
 
             string currentSlipDate = "";
             for (int i = 1; i < kfmData.Count; i++)
@@ -1207,12 +1207,27 @@ namespace ReconcileData
                     string qty = row[colQty].Trim();
                     string slipCode = row[colSlipCode].Trim();
 
-                    cleanRows.Add(new[] { branch, product, productName, uom, qty, slipCode });
+                    string formattedDate = FormatDate(kfmDateStr);
+                    cleanRows.Add(new[] { formattedDate, branch, product, productName, uom, qty, slipCode });
                 }
             }
 
             // Write to new XLSX
             CreateCleanXlsx(destFile, cleanRows);
+
+            // Write to temp CSV for Google Sheets upload
+            try
+            {
+                string csvTemp = @"C:\temp_restore\clean_kfm.csv";
+                string csvTempDir = Path.GetDirectoryName(csvTemp);
+                if (!Directory.Exists(csvTempDir)) Directory.CreateDirectory(csvTempDir);
+                WriteCsv(csvTemp, cleanRows);
+                Console.WriteLine("Da ghi file CSV tam thoi de day Google Sheets: " + csvTemp);
+            }
+            catch (Exception csvEx)
+            {
+                Console.WriteLine("Loi khi ghi file CSV tam thoi: " + csvEx.Message);
+            }
         }
 
         static void CreateCleanXlsx(string outPath, List<string[]> rows)
