@@ -1,0 +1,9 @@
+{
+  "name": "kfm-downloader",
+  "version": "1.0.0",
+  "description": "Download KFM Transfer Items automatically using Playwright",
+  "main": "download_kfm.js",
+  "dependencies": {
+    "playwright-core": "^1.40.0"
+  }
+}
