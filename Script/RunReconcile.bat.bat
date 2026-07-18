@@ -9,7 +9,45 @@ set "TELEGRAM_CHATID=5958913327,-4511126388"
 
 set "SCRIPT_DIR=%~dp0"
 for %%I in ("%~dp0..") do set "BASE_DIR=%%~fI"
+echo.
+echo ==================================================
+echo   Tu dong tai xuat file KFM.xlsx...
+echo ==================================================
+REM Lay ngay hom nay dinh dang ddMMyyyy de kiem tra file co san
+for /f "tokens=*" %%i in ('powershell -NoProfile -Command "Get-Date -Format 'ddMMyyyy'"') do set "TODAY_STR=%%i"
 
+echo Kiem tra xem da co file KFM cua ngay hom nay (%TODAY_STR%) chua...
+set "FOUND_FILE="
+for %%f in ("%BASE_DIR%\Data\KFM\*_%TODAY_STR%*.xlsx") do (
+    set "FOUND_FILE=%%~nxf"
+)
+
+if defined FOUND_FILE (
+    echo.
+    powershell -Command "Write-Host 'Da co file KFM cua ngay hom nay trong thu muc Data: %FOUND_FILE%. Bo qua buoc tai file.' -ForegroundColor Green"
+    goto :reconcile_start
+)
+
+if not exist "C:\temp_restore\reconcile_script" mkdir "C:\temp_restore\reconcile_script"
+copy /y "%SCRIPT_DIR%download_kfm.js" "C:\temp_restore\reconcile_script\download_kfm.js" >nul
+copy /y "%SCRIPT_DIR%package.json" "C:\temp_restore\reconcile_script\package.json" >nul
+
+pushd "C:\temp_restore\reconcile_script"
+if not exist "node_modules" (
+    echo Dang cai dat thu vien Playwright...
+    call npm install --no-audit --no-fund >nul
+)
+call node download_kfm.js
+if %ERRORLEVEL% neq 0 (
+    echo.
+    powershell -Command "Write-Host 'Loi khi tu dong tai file KFM.xlsx!' -ForegroundColor Red"
+    popd
+    pause
+    exit /b 1
+)
+popd
+
+:reconcile_start
 echo.
 echo Dang bien dich script C#...
 set CSC="C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -41,7 +79,7 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
     popd
 
     echo.
-    echo Dang deploy du lieu doi soat sang Dashboard tong (GitHub Pages)...
+    echo Dang deploy du lieu doi soat sang Dashboard tong [GitHub Pages]...
     powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%deploy_doi_soat.ps1"
     if %ERRORLEVEL% neq 0 (
         echo.
@@ -50,11 +88,11 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
     )
 
     echo.
-    echo Dang deploy du lieu doi soat sang Dashboard GitLab (app-scm.kfm.vn)...
+    echo Dang deploy du lieu doi soat sang Dashboard GitLab [app-scm.kfm.vn]...
     powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%deploy_to_gitlab.ps1"
     if %ERRORLEVEL% neq 0 (
         echo.
-        powershell -Command "Write-Host 'Co loi xay ra khi deploy du lieu sang GitLab (app-scm.kfm.vn).' -ForegroundColor Red"
+        powershell -Command "Write-Host 'Co loi xay ra khi deploy du lieu sang GitLab [app-scm.kfm.vn].' -ForegroundColor Red"
         exit /b 1
     )
 
