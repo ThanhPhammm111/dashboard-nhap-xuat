@@ -85,8 +85,9 @@ namespace ReconcileData
                 if (kfmData.Count < 2) throw new Exception("KFM file is empty or missing headers.");
                 
                 int kfmColBranch = FindCol(kfmData[0], new[] { "Chi nhánh nhận", "Chi nhanh nhan" });
-                int kfmColProduct = FindCol(kfmData[0], new[] { "Mã hàng", "Ma hang" });
-                int kfmColQty = FindCol(kfmData[0], new[] { "Số lượng chuyển", "So luong chuyen" });
+                int kfmColProduct = FindCol(kfmData[0], new[] { "Mã hàng", "Ma hang", "SKU" });
+                int kfmColQty = FindCol(kfmData[0], new[] { "Số lượng chuyển", "So luong chuyen", "Số lượng", "So luong" });
+                int kfmColDate = FindCol(kfmData[0], new[] { "Ngày chuyển hàng", "Ngay chuyen hang", "Ngày tạo", "Ngay tao", "Ngày chuyển", "Ngay chuyen" });
                 
                 // Fallbacks based on structure
                 if (kfmColBranch == -1) kfmColBranch = 3;
@@ -94,6 +95,7 @@ namespace ReconcileData
                 int kfmColProductName = FindCol(kfmData[0], new[] { "Tên hàng", "Ten hang" });
                 if (kfmColQty == -1) kfmColQty = 10;
                 if (kfmColProductName == -1) kfmColProductName = 8;
+                if (kfmColDate == -1) kfmColDate = 0;
 
                 // kfmDict: Key -> Total Qty
                 var kfmDict = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
@@ -101,11 +103,41 @@ namespace ReconcileData
                 var productCategoryDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var productLoaiHangDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 
+                string currentSlipDate = "";
                 for (int i = 1; i < kfmData.Count; i++)
                 {
                     var row = kfmData[i];
                     if (row.Length > Math.Max(kfmColBranch, Math.Max(kfmColProduct, kfmColQty)))
                     {
+                        // Keep track of date (handling merged cells/grouping)
+                        if (row.Length > kfmColDate)
+                        {
+                            string dVal = row[kfmColDate].Trim();
+                            if (!string.IsNullOrEmpty(dVal))
+                            {
+                                var dMatch = System.Text.RegularExpressions.Regex.Match(dVal, @"\d{2}/\d{2}/\d{4}");
+                                if (dMatch.Success)
+                                {
+                                    currentSlipDate = dMatch.Value.Replace("/", "");
+                                }
+                                else
+                                {
+                                    var dMatch2 = System.Text.RegularExpressions.Regex.Match(dVal, @"\d{4}-\d{2}-\d{2}");
+                                    if (dMatch2.Success)
+                                    {
+                                        string[] p = dMatch2.Value.Split('-');
+                                        currentSlipDate = p[2] + p[1] + p[0];
+                                    }
+                                }
+                            }
+                        }
+
+                        // Date filter to ensure we only count target date if filename has a date
+                        if (!string.IsNullOrEmpty(kfmDateStr) && !string.IsNullOrEmpty(currentSlipDate) && currentSlipDate != kfmDateStr)
+                        {
+                            continue;
+                        }
+
                         string branch = row[kfmColBranch].Trim();
                         string product = row[kfmColProduct].Trim();
                         string qtyStr = row[kfmColQty].Trim().Replace(",", "");
@@ -612,17 +644,27 @@ namespace ReconcileData
                         tgMsg.AppendLine("https://thanhphammm111.github.io/transport_daily_report/external/doi_soat/");
                     }
 
-                    try {
-                        var ids = telegramChatId.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (var id in ids) {
+                    var ids = telegramChatId.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    bool atLeastOneSent = false;
+                    foreach (var id in ids) {
+                        try {
                             SendTelegramMessage(telegramToken, id.Trim(), tgMsg.ToString());
+                            atLeastOneSent = true;
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("Da gui bao cao Telegram den ID " + id.Trim() + " thanh cong!");
+                            Console.ResetColor();
+                        } catch (Exception texc) {
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Loi gui Telegram den ID " + id.Trim() + ": " + texc.Message);
+                            if (texc.Message.Contains("403")) {
+                                Console.WriteLine("-> Luu y: Bot co the da bi kick khoi nhom hoac bi chan chat.");
+                            }
+                            Console.ResetColor();
                         }
+                    }
+                    if (atLeastOneSent) {
                         Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("Da gui bao cao Telegram thanh cong!");
-                        Console.ResetColor();
-                    } catch (Exception texc) {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("Loi gui Telegram: " + texc.Message);
+                        Console.WriteLine("Da hoan thanh gui bao cao den cac kenh Telegram kha dung!");
                         Console.ResetColor();
                     }
                 }
