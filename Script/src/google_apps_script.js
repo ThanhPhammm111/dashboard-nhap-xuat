@@ -144,9 +144,7 @@ function doPost(e) {
     var range = sheet.getRange(startRow, 1, numRows, numCols);
     range.setValues(targetRows);
 
-    // 5. Drag/Copy formulas down
-    // DATA Thực xuất: Formulas start at column 9 (I) to 14 (N)
-    // Data thực nhập: Formulas start at column 11 (K) to 26 (Z)
+    // 5. Drag/Copy formulas down (Optimized: only copy R1C1 formulas, no layout/format copying to avoid timeout)
     if (lastRow >= 2) {
       var formulaStartCol = isNhp ? 11 : 9;
       var totalCols = sheet.getLastColumn();
@@ -154,8 +152,16 @@ function doPost(e) {
       
       if (numFormulaCols > 0) {
         var sourceRange = sheet.getRange(lastRow, formulaStartCol, 1, numFormulaCols);
+        var formulasR1C1 = sourceRange.getFormulasR1C1();
+        
+        // Replicate formulas array for targetRows
+        var targetFormulasR1C1 = [];
+        for (var i = 0; i < numRows; i++) {
+          targetFormulasR1C1.push(formulasR1C1[0]);
+        }
+        
         var targetRange = sheet.getRange(startRow, formulaStartCol, numRows, numFormulaCols);
-        sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+        targetRange.setFormulasR1C1(targetFormulasR1C1);
       }
     }
 
