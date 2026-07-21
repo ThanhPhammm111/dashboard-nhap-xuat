@@ -1,12 +1,12 @@
 ﻿{
-  "lastUpdated": "2026-07-21 10:23:23",
-  "kfmFile": "KFM_21072026.xlsx",
-  "kfmDate": "21/07/2026",
-  "abaFile": "Copy of Bien_Ban_Giao_Hang_Ngay_21.07.xlsx",
-  "abaDate": "",
-  "mismatchCount": 34,
-  "participatingStores": 204,
-  "resultFile": "Result_21072026.csv",
-  "totalKfmQty": 120847.0,
-  "totalAbaQty": 145245.0
+  "lastUpdated": "2026-07-21 11:06:22",
+  "kfmFile": "KFM_18072026.xlsx",
+  "kfmDate": "18/07/2026",
+  "abaFile": "Direct Upload",
+  "abaDate": "18/07/2026",
+  "mismatchCount": 0,
+  "participatingStores": 201,
+  "resultFile": "Result_18072026.csv",
+  "totalKfmQty": 136215.0,
+  "totalAbaQty": 136215.0
 }
