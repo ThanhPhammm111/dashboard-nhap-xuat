@@ -16,6 +16,54 @@ namespace ReconcileData
             System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
             System.Threading.Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
 
+            if (args.Length == 2 && args[0] == "--upload-only")
+            {
+                string targetKfm = args[1];
+                if (!File.Exists(targetKfm))
+                {
+                    Console.WriteLine("File KFM khong ton tai tai: " + targetKfm);
+                    return;
+                }
+
+                string kfmDateStr = ExtractDate(targetKfm);
+                if (string.IsNullOrEmpty(kfmDateStr))
+                {
+                    Console.WriteLine("Khong the trich xuat ngay tu ten file KFM: " + Path.GetFileName(targetKfm));
+                    return;
+                }
+
+                string rootDir = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(targetKfm)));
+                string dateStamp = DateTime.Now.ToString("yyyy-MM-dd");
+                DateTime parsed = ParseDateStr(kfmDateStr);
+                if (parsed != DateTime.MinValue)
+                {
+                    dateStamp = parsed.ToString("yyyy-MM-dd");
+                }
+                
+                string archiveDir = Path.Combine(rootDir, "Archive", dateStamp);
+                if (!Directory.Exists(archiveDir)) Directory.CreateDirectory(archiveDir);
+                string archiveFile = Path.Combine(archiveDir, Path.GetFileName(targetKfm));
+
+                Console.WriteLine("====================================================");
+                Console.WriteLine("CHE DO DIRECT UPLOAD ONLY (KHONG DOI SOAT)");
+                Console.WriteLine("File nguon KFM: " + Path.GetFileName(targetKfm));
+                Console.WriteLine("Ngay KFM: " + FormatDate(kfmDateStr));
+                Console.WriteLine("File luu tru: " + archiveFile);
+                Console.WriteLine("====================================================");
+
+                try
+                {
+                    CleanAndArchiveKfm(targetKfm, archiveFile, kfmDateStr);
+                    Console.WriteLine("Da loc, luu tru va chuan bi file CSV tam thoi de upload Sheets xong!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Loi khi thuc hien loc: " + ex.Message);
+                    Console.WriteLine(ex.StackTrace);
+                }
+                return;
+            }
+
             if (args.Length < 4)
             {
                 Console.WriteLine("Usage: ReconcileData.exe <DataST.xlsx/csv> <KFM.xlsx/csv> <ABA.xlsx/csv> <Result.csv>");

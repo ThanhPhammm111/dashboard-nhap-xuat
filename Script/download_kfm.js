@@ -6,11 +6,28 @@ const fs = require('fs');
   console.log('=== STARTING AUTOMATED EXPORT ===');
   const chromePath = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe';
   const downloadDir = 'G:\\Drive của tôi\\Report\\Đối chiếu xuất hàng\\Data\\KFM';
-  const today = new Date();
-  const dd = String(today.getDate()).padStart(2, '0');
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const yyyy = today.getFullYear();
-  const dateStr = `${dd}${mm}${yyyy}`;
+  let dd, mm, yyyy, dateStr;
+  let isCustomDate = false;
+  if (process.argv[2]) {
+    const arg = process.argv[2].trim();
+    if (arg.length === 8) {
+      dd = arg.substring(0, 2);
+      mm = arg.substring(2, 4);
+      yyyy = arg.substring(4, 8);
+      dateStr = arg;
+      isCustomDate = true;
+      console.log(`Using custom target date: ${dd}/${mm}/${yyyy}`);
+    } else {
+      console.error('Invalid date format. Expected DDMMYYYY (e.g., 19072026)');
+      process.exit(1);
+    }
+  } else {
+    const today = new Date();
+    dd = String(today.getDate()).padStart(2, '0');
+    mm = String(today.getMonth() + 1).padStart(2, '0');
+    yyyy = today.getFullYear();
+    dateStr = `${dd}${mm}${yyyy}`;
+  }
   const targetFileName = `KFM_${dateStr}.xlsx`;
   const targetFilePath = path.join(downloadDir, targetFileName);
   const statePath = path.join(__dirname, 'state.json');
@@ -157,36 +174,48 @@ const fs = require('fs');
     }
     await page.waitForTimeout(1000);
 
-    // Filter "Ngày tạo" -> Today
-    console.log('Filtering "Ngày tạo" to Today...');
+    // Filter "Ngày tạo" -> Today or Custom Date
+    const targetDateFormatted = `${dd}/${mm}/${yyyy}`; // dd/mm/yyyy
+    console.log(`Filtering "Ngày tạo" to ${targetDateFormatted}...`);
     const ngayTaoContainer = page.locator('.ant-form-item').filter({ hasText: 'Ngày tạo' }).first();
     const ngayTaoInput = ngayTaoContainer.locator('input').first();
     await ngayTaoInput.click();
     await page.waitForTimeout(1000);
     
-    // Scope the "Hôm nay" button to the picker dropdown to avoid clicking main page elements
-    const homNayBtn = page.locator('.ant-picker-dropdown button:has-text("Hôm nay"), .ant-picker-dropdown a:has-text("Hôm nay"), .ant-picker-dropdown span:has-text("Hôm nay"), .ant-picker-dropdown [class*="preset"]:has-text("Hôm nay"), .ant-picker-dropdown .ant-picker-preset button').first();
-    await homNayBtn.click();
-    await page.waitForTimeout(1000);
-
-    // Verify filter value and apply typing fallback if empty
-    const dateVal = await ngayTaoInput.inputValue();
-    console.log('Date filter value after selection:', dateVal);
-
-    if (!dateVal) {
-      console.log('Warning: Date filter is empty. Attempting fallback by typing date...');
-      const todayStr = `${dd}/${mm}/${yyyy}`; // dd/mm/yyyy
-      await ngayTaoInput.fill(todayStr);
+    if (isCustomDate) {
+      console.log(`Typing custom date: ${targetDateFormatted}`);
+      await ngayTaoInput.fill(targetDateFormatted);
       await page.keyboard.press('Enter');
       await page.waitForTimeout(500);
       
       const ngayTaoInputEnd = ngayTaoContainer.locator('input').last();
-      await ngayTaoInputEnd.fill(todayStr);
+      await ngayTaoInputEnd.fill(targetDateFormatted);
       await page.keyboard.press('Enter');
       await page.waitForTimeout(1000);
-      
-      const dateValVerify = await ngayTaoInput.inputValue();
-      console.log('Date filter value after fallback typing:', dateValVerify);
+    } else {
+      // Scope the "Hôm nay" button to the picker dropdown to avoid clicking main page elements
+      const homNayBtn = page.locator('.ant-picker-dropdown button:has-text("Hôm nay"), .ant-picker-dropdown a:has-text("Hôm nay"), .ant-picker-dropdown span:has-text("Hôm nay"), .ant-picker-dropdown [class*="preset"]:has-text("Hôm nay"), .ant-picker-dropdown .ant-picker-preset button').first();
+      await homNayBtn.click();
+      await page.waitForTimeout(1000);
+
+      // Verify filter value and apply typing fallback if empty
+      const dateVal = await ngayTaoInput.inputValue();
+      console.log('Date filter value after selection:', dateVal);
+
+      if (!dateVal) {
+        console.log('Warning: Date filter is empty. Attempting fallback by typing date...');
+        await ngayTaoInput.fill(targetDateFormatted);
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(500);
+        
+        const ngayTaoInputEnd = ngayTaoContainer.locator('input').last();
+        await ngayTaoInputEnd.fill(targetDateFormatted);
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(1000);
+        
+        const dateValVerify = await ngayTaoInput.inputValue();
+        console.log('Date filter value after fallback typing:', dateValVerify);
+      }
     }
 
     // Apply Filter
