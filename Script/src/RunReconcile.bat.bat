@@ -1,6 +1,8 @@
 @echo off
 setlocal
 
+set "GIT_ASK_YESNO=false"
+
 set "TELEGRAM_TOKEN=8902427051:AAHpWe9UxoGplPd6XbkjCsc5A7a8Y2LMs7Y"
 REM Danh sach Chat ID, cach nhau bang dau phay. Them Group ID moi vao day.
 REM   - 5958913327 = Inbox ca nhan cua ban
@@ -48,9 +50,14 @@ if %ERRORLEVEL% neq 0 (
 popd
 
 :reconcile_start
-REM Trich xuat ngay doi soat tu ten file KFM moi nhat (ngoai tat ca cac khoi ngoac don de tranh loi parser CMD)
+REM Tim ten file KFM moi nhat trong thu muc Data\KFM (dung dong lenh don de tranh loi parser CMD)
+set "LATEST_FILE="
+for /f "tokens=*" %%f in ('dir "%BASE_DIR%\Data\KFM\*.xlsx" /b /o:-d 2^>nul') do if not defined LATEST_FILE set "LATEST_FILE=%%f"
+
+REM Trich xuat 8 chu so ngay tu ten file do (viet tren 1 dong don khong co ngoac batch)
 set "KFM_DATE_STR="
-for /f "usebackq tokens=*" %%f in (`powershell -NoProfile -Command "$f = Get-ChildItem '%BASE_DIR%\Data\KFM\*.xlsx' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($f.Name -match '\d{8}') { $Matches[0] } else { '' }"`) do set "KFM_DATE_STR=%%f"
+if not "%LATEST_FILE%"=="" for /f "tokens=*" %%d in ('powershell -NoProfile -Command "if ('%LATEST_FILE%' -match '\d{8}') { $Matches[0] }"') do set "KFM_DATE_STR=%%d"
+
 
 echo.
 echo Dang bien dich script C#...
@@ -83,10 +90,10 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
         
         echo.
         echo ==================================================
-        echo   Doi soat thanh cong 100%%. Tai file Nhap (PR)...
+        echo   Doi soat thanh cong 100%%. Tai file Nhap PR...
         echo ==================================================
         
-        if not "%KFM_DATE_STR%"="" (
+        if not "%KFM_DATE_STR%" == "" (
             set "DD=%KFM_DATE_STR:~0,2%"
             set "MM=%KFM_DATE_STR:~2,2%"
             set "YYYY=%KFM_DATE_STR:~4,4%"

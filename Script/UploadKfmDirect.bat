@@ -1,5 +1,6 @@
 @echo off
 setlocal
+set "GIT_ASK_YESNO=false"
 set "DATE_ARG=%1"
 if "%DATE_ARG%"=="" (
     echo.
