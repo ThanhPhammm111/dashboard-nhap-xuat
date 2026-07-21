@@ -132,17 +132,18 @@ const fs = require('fs');
     const branchContainer = page.locator('.ant-form-item', { hasText: 'Chi nhánh' });
     await branchContainer.locator('.ant-select-selector').click();
     await page.waitForTimeout(1000);
+    const branchSearchInput = branchContainer.locator('input.ant-select-selection-search-input');
 
     // Select LHABA
-    await page.keyboard.insertText('LHABA');
-    await page.waitForTimeout(1000);
-    await page.locator('.ant-select-item-option', { hasText: 'LHABA - KHO ABA LƯU HÀNG' }).first().click();
+    await branchSearchInput.fill('LHABA');
+    await page.waitForTimeout(1500);
+    await page.locator('.ant-select-item-option-content', { hasText: 'LHABA - KHO ABA LƯU HÀNG' }).first().click();
     await page.waitForTimeout(500);
 
     // Select QCABA
-    await page.keyboard.insertText('QCABA');
-    await page.waitForTimeout(1000);
-    await page.locator('.ant-select-item-option', { hasText: 'QCABA - KHO ABA QUÁ CẢNH' }).first().click();
+    await branchSearchInput.fill('QCABA');
+    await page.waitForTimeout(1500);
+    await page.locator('.ant-select-item-option-content', { hasText: 'QCABA - KHO ABA QUÁ CẢNH' }).first().click();
     await page.waitForTimeout(500);
 
     await page.keyboard.press('Escape');
@@ -153,17 +154,18 @@ const fs = require('fs');
     const statusContainer = page.locator('.ant-form-item', { hasText: 'Trạng thái' });
     await statusContainer.locator('.ant-select-selector').click();
     await page.waitForTimeout(1000);
+    const statusSearchInput = statusContainer.locator('input.ant-select-selection-search-input');
 
     // Select Đã nhận hàng
-    await page.keyboard.insertText('Đã nhận hàng');
-    await page.waitForTimeout(1000);
-    await page.locator('.ant-select-item-option', { hasText: 'Đã nhận hàng' }).first().click();
+    await statusSearchInput.fill('Đã nhận hàng');
+    await page.waitForTimeout(1500);
+    await page.locator('.ant-select-item-option-content', { hasText: 'Đã nhận hàng' }).first().click();
     await page.waitForTimeout(500);
 
     // Select Released
-    await page.keyboard.insertText('Released');
-    await page.waitForTimeout(1000);
-    await page.locator('.ant-select-item-option', { hasText: 'Released' }).first().click();
+    await statusSearchInput.fill('Released');
+    await page.waitForTimeout(1500);
+    await page.locator('.ant-select-item-option-content', { hasText: 'Released' }).first().click();
     await page.waitForTimeout(500);
 
     await page.keyboard.press('Escape');
@@ -190,19 +192,59 @@ const fs = require('fs');
     // 7. Click Áp dụng
     console.log('Clicking Áp dụng...');
     await page.locator('button', { hasText: 'Áp dụng' }).click();
-    await page.waitForTimeout(5000); // Wait for data to load
+    await page.waitForTimeout(10000); // Wait 10s for table to reload
 
-    // 8. Click Xuất file -> select "Xuất file chi tiết"
-    console.log('Initiating file download...');
+    // 8. Close the filter panel to remove the drawer mask
+    console.log('Closing Filter Drawer/Mask...');
+    try {
+      const closeBtn = page.locator('header:has-text("Bộ lọc") button, button:has-text("x"), .ant-drawer-close').first();
+      if (await closeBtn.isVisible()) {
+        await closeBtn.click();
+      } else {
+        await page.keyboard.press('Escape');
+      }
+    } catch (e) {
+      await page.keyboard.press('Escape');
+    }
+    await page.waitForTimeout(3000);
+
+    // 9. Click "Xuất file" using bulletproof loop
+    console.log('Opening "Xuất file" dropdown...');
     const exportBtn = page.locator('button', { hasText: 'Xuất file' }).first();
-    await exportBtn.click();
-    await page.waitForTimeout(1000);
+    const detailOption = page.locator('.ant-dropdown-menu-item, li[role="menuitem"]', { hasText: 'Xuất file chi tiết' }).first();
+    
+    let isOpen = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      console.log(`Clicking Export button (attempt ${attempt})...`);
+      await exportBtn.click();
+      await page.waitForTimeout(2000);
+      
+      const isVisible = await detailOption.isVisible();
+      if (isVisible) {
+        console.log('Option "Xuất file chi tiết" is now visible!');
+        isOpen = true;
+        break;
+      }
+    }
 
-    // Intercept download event
+    if (!isOpen) {
+      console.log('Dropdown option not visible, trying span click...');
+      await page.locator('span:has-text("Xuất file")').first().click();
+      await page.waitForTimeout(2000);
+    }
+
     console.log('Clicking "Xuất file chi tiết" option...');
+    await detailOption.click();
+
+    // 10. Wait for confirmation modal and click Confirm to start download
+    console.log('Waiting for confirmation modal...');
+    const confirmBtn = page.locator('.ant-modal-content button, button:has-text("Xác nhận")').filter({ hasText: 'Xác nhận' }).first();
+    await confirmBtn.waitFor({ state: 'visible', timeout: 15000 });
+
+    console.log('Clicking "Xác nhận" to confirm download...');
     const [ download ] = await Promise.all([
-      page.waitForEvent('download'),
-      page.locator('.ant-dropdown-menu-item, li[role="menuitem"]', { hasText: 'Xuất file chi tiết' }).first().click()
+      page.waitForEvent('download', { timeout: 180000 }),
+      confirmBtn.click()
     ]);
 
     console.log('Downloading file...');
