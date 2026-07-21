@@ -23,6 +23,24 @@ namespace ReconcileData
             System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
             System.Threading.Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
 
+            if (args.Length == 4 && args[0] == "--process-import")
+            {
+                string prExcelFile = args[1];
+                string csvOutputFile = args[2];
+                string targetDate = args[3]; // format: ddMMyyyy
+                try
+                {
+                    ProcessPrImport(prExcelFile, csvOutputFile, targetDate);
+                    Console.WriteLine("SUCCEED: Processed PR Import Excel to CSV.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("ERROR: " + ex.Message);
+                    Environment.Exit(1);
+                }
+                return;
+            }
+
             if (args.Length == 2 && args[0] == "--upload-only")
             {
                 string targetKfm = args[1];
@@ -1447,6 +1465,92 @@ namespace ReconcileData
                     sw.WriteLine(@"</worksheet>");
                 }
             }
+        }
+
+        static void ProcessPrImport(string excelPath, string csvPath, string targetDate)
+        {
+            if (!File.Exists(excelPath)) throw new FileNotFoundException("PR Excel file not found: " + excelPath);
+            
+            var prData = ReadExcelOrCsv(excelPath);
+            if (prData.Count < 2) throw new Exception("PR Import Excel file is empty or missing headers.");
+            
+            var header = prData[0];
+            int colDate = FindCol(header, new[] { "Ngày giao hàng NCC xác nhận", "Ngày giao hàng", "Ngay giao hang" });
+            int colBranch = FindCol(header, new[] { "Tên viết tắt", "Ten viet tat", "Chi nhánh", "Chi nhanh" });
+            int colPo = FindCol(header, new[] { "Mã PO", "Ma PO" });
+            int colVendor = FindCol(header, new[] { "Mã nhà cung cấp", "Ma nha cung cap" });
+            int colProduct = FindCol(header, new[] { "Mã hàng", "Ma hang", "SKU" });
+            int colProductName = FindCol(header, new[] { "Tên hàng", "Ten hang" });
+            int colUom = FindCol(header, new[] { "Đơn vị tính", "Don vi tinh", "ĐVT", "DVT" });
+            int colQtyPo = FindCol(header, new[] { "Số lượng PO", "So luong PO" });
+            int colQtyPr = FindCol(header, new[] { "Số lượng PR (thực nhận)", "Số lượng PR", "So luong PR" });
+            
+            // Set defaults if not found
+            if (colDate == -1) colDate = 6;
+            if (colBranch == -1) colBranch = 3;
+            if (colPo == -1) colPo = 1;
+            if (colVendor == -1) colVendor = 9;
+            if (colProduct == -1) colProduct = 19;
+            if (colProductName == -1) colProductName = 20;
+            if (colUom == -1) colUom = 21;
+            if (colQtyPo == -1) colQtyPo = 25;
+            if (colQtyPr == -1) colQtyPr = 29;
+            
+            var cleanRows = new List<string[]>();
+            // Google Sheets tab Data thực nhập expected headers (10 columns):
+            // Ngày, Loại hàng, Tên viết tắt, Mã PO, Mã nhà cung cấp, Mã hàng, Tên hàng, ĐVT, Số lượng PO, Số lượng PR (thực nhận)
+            cleanRows.Add(new[] { "Ngày", "Loại hàng", "Tên viết tắt", "Mã PO", "Mã nhà cung cấp", "Mã hàng", "Tên hàng", "ĐVT", "Số lượng PO", "Số lượng PR (thực nhận)" });
+            
+            // Target date in format ddMMyyyy converts to dd/MM/yyyy
+            string expectedDateStr = "";
+            if (!string.IsNullOrEmpty(targetDate) && targetDate.Length == 8)
+            {
+                expectedDateStr = targetDate.Substring(0, 2) + "/" + targetDate.Substring(2, 2) + "/" + targetDate.Substring(4, 4);
+            }
+            
+            for (int i = 1; i < prData.Count; i++)
+            {
+                var row = prData[i];
+                if (row.Length > Math.Max(colDate, Math.Max(colBranch, Math.Max(colPo, Math.Max(colVendor, Math.Max(colProduct, Math.Max(colProductName, Math.Max(colUom, Math.Max(colQtyPo, colQtyPr)))))))))
+                {
+                    string dateVal = row[colDate].Trim();
+                    string branch = row[colBranch].Trim();
+                    string po = row[colPo].Trim();
+                    string vendor = row[colVendor].Trim();
+                    string product = row[colProduct].Trim();
+                    string productName = row[colProductName].Trim();
+                    string uom = row[colUom].Trim();
+                    string qtyPo = row[colQtyPo].Trim();
+                    string qtyPr = row[colQtyPr].Trim();
+                    
+                    // Filter out product code starting with C
+                    if (product.StartsWith("C", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    
+                    // Date filter
+                    if (!string.IsNullOrEmpty(expectedDateStr) && !string.IsNullOrEmpty(dateVal))
+                    {
+                        string datePart = dateVal.Split(' ')[0];
+                        if (datePart != expectedDateStr)
+                        {
+                            continue; // skip rows not matching the target date
+                        }
+                    }
+                    
+                    // Format date
+                    string formattedDate = "";
+                    if (!string.IsNullOrEmpty(dateVal))
+                    {
+                        formattedDate = dateVal.Split(' ')[0];
+                    }
+                    
+                    cleanRows.Add(new[] { formattedDate, "", branch, po, vendor, product, productName, uom, qtyPo, qtyPr });
+                }
+            }
+            
+            WriteCsv(csvPath, cleanRows);
         }
 
         static string GetCellRef(int colIdx, int rowNum)

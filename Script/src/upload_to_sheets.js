@@ -53,24 +53,29 @@ async function upload() {
     return;
   }
 
-  console.log('Dang gui du lieu len Google Sheets qua Apps Script...');
+  const payload = {
+    sheetName: process.argv[3] || 'DATA Thực xuất',
+    data: data
+  };
+
+  console.log(`Dang gui du lieu len Google Sheets [Tab: ${payload.sheetName}] qua Apps Script...`);
   const response = await fetch(webAppUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
-
-  const text = await response.text();
-  console.log(`Ket qua phan hoi tu Google Apps Script: ${text}`);
-
-  if (text.includes('SUCCESS')) {
-    console.log('=== GOOGLE SHEETS UPLOAD SUCCESSFUL ===\n');
-  } else {
-    throw new Error(`Google Apps Script khong tra ve SUCCESS. Chi tiet: ${text}`);
-  }
-}
+ 
+   const text = await response.text();
+   console.log(`Ket qua phan hoi tu Google Apps Script: ${text}`);
+ 
+   if (text.includes('SUCCESS')) {
+     console.log('=== GOOGLE SHEETS UPLOAD SUCCESSFUL ===\n');
+   } else {
+     throw new Error(`Google Apps Script khong tra ve SUCCESS. Chi tiet: ${text}`);
+   }
+ }
 
 upload().catch(err => {
   console.error('\n=== GOOGLE SHEETS UPLOAD ERROR ===');

@@ -81,7 +81,7 @@ if /I "%UPLOAD_SHEETS%"=="Y" (
     if exist "C:\temp_restore\clean_kfm.csv" (
         echo.
         echo Dang day du lieu thuc xuat len Google Sheets...
-        call node "%SRC_DIR%upload_to_sheets.js" "C:\temp_restore\clean_kfm.csv"
+        call node "%SRC_DIR%upload_to_sheets.js" "C:\temp_restore\clean_kfm.csv" "DATA Thực xuất"
         if %ERRORLEVEL% neq 0 (
             echo.
             powershell -Command "Write-Host 'Loi khi day du lieu len Google Sheets!' -ForegroundColor Red"
@@ -90,6 +90,42 @@ if /I "%UPLOAD_SHEETS%"=="Y" (
             exit /b 1
         )
         del "C:\temp_restore\clean_kfm.csv"
+        
+        echo.
+        echo ==================================================
+        echo   Dang tai file Nhap (PR) cho ngay %DATE_ARG%...
+        echo ==================================================
+        
+        set "DD=%DATE_ARG:~0,2%"
+        set "MM=%DATE_ARG:~2,2%"
+        set "YYYY=%DATE_ARG:~4,4%"
+        set "FORMATTED_DATE=%DD%/%MM%/%YYYY%"
+        
+        REM Che do chay download tool
+        copy /y "%SRC_DIR%download_pr_import.js" "C:\temp_restore\reconcile_script\download_pr_import.js" >nul
+        
+        pushd "C:\temp_restore\reconcile_script"
+        call node download_pr_import.js "%FORMATTED_DATE%"
+        if %ERRORLEVEL% equ 0 (
+            popd
+            set "PR_FILE=%BASE_DIR%\Data\Nhập\PR_%DATE_ARG%.xlsx"
+            if exist "%PR_FILE%" (
+                echo.
+                echo Dang xu ly file PR Excel va tao CSV thuc nhap...
+                "%SRC_DIR%ReconcileData.exe" --process-import "%PR_FILE%" "C:\temp_restore\clean_import.csv" "%DATE_ARG%"
+                
+                if exist "C:\temp_restore\clean_import.csv" (
+                    echo Dang day du lieu thuc nhap len Google Sheets...
+                    call node "%SRC_DIR%upload_to_sheets.js" "C:\temp_restore\clean_import.csv" "Data thực nhập"
+                    del "C:\temp_restore\clean_import.csv"
+                )
+            ) else (
+                powershell -Command "Write-Host 'Loi: Khong tim thay file PR da tai tai %PR_FILE%' -ForegroundColor Red"
+            )
+        ) else (
+            popd
+            powershell -Command "Write-Host 'Loi khi tu dong tai file PR!' -ForegroundColor Red"
+        )
     ) else (
         echo.
         powershell -Command "Write-Host 'Khong tim thay file clean_kfm.csv de upload!' -ForegroundColor Yellow"

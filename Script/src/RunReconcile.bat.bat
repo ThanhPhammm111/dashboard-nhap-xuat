@@ -74,8 +74,55 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
     if exist "C:\temp_restore\clean_kfm.csv" (
         echo.
         echo Dang day du lieu thuc xuat len Google Sheets...
-        call node "%SCRIPT_DIR%upload_to_sheets.js" "C:\temp_restore\clean_kfm.csv"
+        call node "%SCRIPT_DIR%upload_to_sheets.js" "C:\temp_restore\clean_kfm.csv" "DATA Thực xuất"
         del "C:\temp_restore\clean_kfm.csv"
+        
+        echo.
+        echo ==================================================
+        echo   Doi soat thanh cong 100%%. Tai file Nhap (PR)...
+        echo ==================================================
+        
+        REM Trich xuat ngay doi soat tu ten file KFM moi nhat
+        for /f "usebackq tokens=*" %%f in (`powershell -NoProfile -Command "$f = Get-ChildItem '%BASE_DIR%\Data\KFM\*.xlsx' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($f.Name -match '\d{8}') { $Matches[0] } else { '' }"`) do set "KFM_DATE_STR=%%f"
+        
+        if not "%KFM_DATE_STR%"="" (
+            set "DD=%KFM_DATE_STR:~0,2%"
+            set "MM=%KFM_DATE_STR:~2,2%"
+            set "YYYY=%KFM_DATE_STR:~4,4%"
+            set "FORMATTED_DATE=%DD%/%MM%/%YYYY%"
+            
+            echo Ngay doi soat xac dinh: %%FORMATTED_DATE%%
+            
+            REM Che do chay download tool
+            if not exist "C:\temp_restore\reconcile_script" mkdir "C:\temp_restore\reconcile_script"
+            copy /y "%SCRIPT_DIR%download_pr_import.js" "C:\temp_restore\reconcile_script\download_pr_import.js" >nul
+            copy /y "%SCRIPT_DIR%package.json" "C:\temp_restore\reconcile_script\package.json" >nul
+            
+            pushd "C:\temp_restore\reconcile_script"
+            call node download_pr_import.js "%%FORMATTED_DATE%%"
+            if %ERRORLEVEL% equ 0 (
+                popd
+                set "PR_FILE=%BASE_DIR%\Data\Nhập\PR_%%KFM_DATE_STR%%.xlsx"
+                if exist "%%PR_FILE%%" (
+                    echo.
+                    echo Dang xu ly file PR Excel va tao CSV thuc nhap...
+                    "%SCRIPT_DIR%ReconcileData.exe" --process-import "%%PR_FILE%%" "C:\temp_restore\clean_import.csv" "%%KFM_DATE_STR%%"
+                    
+                    if exist "C:\temp_restore\clean_import.csv" (
+                        echo Dang day du lieu thuc nhap len Google Sheets...
+                        call node "%SCRIPT_DIR%upload_to_sheets.js" "C:\temp_restore\clean_import.csv" "Data thực nhập"
+                        del "C:\temp_restore\clean_import.csv"
+                    )
+                ) else (
+                    powershell -Command "Write-Host 'Loi: Khong tim thay file PR da tai tai %%PR_FILE%%' -ForegroundColor Red"
+                )
+            ) else (
+                popd
+                powershell -Command "Write-Host 'Loi khi tu dong tai file PR!' -ForegroundColor Red"
+            )
+        ) else (
+            powershell -Command "Write-Host 'Khong xac dinh duoc ngay doi soat tu file KFM.' -ForegroundColor Red"
+        )
     )
     
     echo.
