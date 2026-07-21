@@ -148,17 +148,11 @@ const fs = require('fs');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
 
-    // 5. Select Status (Phiếu tạm, Đã nhận hàng, Released)
-    console.log('Selecting Statuses (Phiếu tạm, Đã nhận hàng, Released)...');
+    // 5. Select Status (Đã nhận hàng, Released)
+    console.log('Selecting Statuses (Đã nhận hàng, Released)...');
     const statusContainer = page.locator('.ant-form-item', { hasText: 'Trạng thái' });
     await statusContainer.locator('.ant-select-selector').click();
     await page.waitForTimeout(1000);
-
-    // Select Phiếu tạm
-    await page.keyboard.insertText('Phiếu tạm');
-    await page.waitForTimeout(1000);
-    await page.locator('.ant-select-item-option', { hasText: 'Phiếu tạm' }).first().click();
-    await page.waitForTimeout(500);
 
     // Select Đã nhận hàng
     await page.keyboard.insertText('Đã nhận hàng');
