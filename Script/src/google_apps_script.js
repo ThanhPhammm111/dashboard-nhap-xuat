@@ -30,7 +30,7 @@ function doPost(e) {
       return ContentService.createTextOutput("SUCCESS: No data to append");
     }
 
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = SpreadsheetApp.openById("1O5z-i4rsx0pT9Xr5x4BpculOJr8rPeC-Yz8glLidJcA");
     var sheet = ss.getSheetByName(sheetName);
     if (!sheet) {
       return ContentService.createTextOutput("ERROR: Sheet not found: " + sheetName);
