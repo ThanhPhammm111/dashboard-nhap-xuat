@@ -1,12 +1,12 @@
 ﻿{
-  "lastUpdated": "2026-07-21 09:30:24",
+  "lastUpdated": "2026-07-21 09:57:14",
   "kfmFile": "KFM_21072026.xlsx",
   "kfmDate": "21/07/2026",
   "abaFile": "Copy of Bien_Ban_Giao_Hang_Ngay_21.07.xlsx",
   "abaDate": "",
-  "mismatchCount": 40,
+  "mismatchCount": 34,
   "participatingStores": 204,
   "resultFile": "Result_21072026.csv",
-  "totalKfmQty": 117007.2,
+  "totalKfmQty": 120847.0,
   "totalAbaQty": 145245.0
 }
