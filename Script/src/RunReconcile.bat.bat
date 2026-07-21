@@ -48,6 +48,10 @@ if %ERRORLEVEL% neq 0 (
 popd
 
 :reconcile_start
+REM Trich xuat ngay doi soat tu ten file KFM moi nhat (ngoai tat ca cac khoi ngoac don de tranh loi parser CMD)
+set "KFM_DATE_STR="
+for /f "usebackq tokens=*" %%f in (`powershell -NoProfile -Command "$f = Get-ChildItem '%BASE_DIR%\Data\KFM\*.xlsx' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($f.Name -match '\d{8}') { $Matches[0] } else { '' }"`) do set "KFM_DATE_STR=%%f"
+
 echo.
 echo Dang bien dich script C#...
 set CSC="C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -70,10 +74,6 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
         exit /b 1
     )
     
-    REM Trich xuat ngay doi soat tu ten file KFM moi nhat (ngoai khoi lenh IF de tranh loi cu phap CMD do ngoac don)
-    set "KFM_DATE_STR="
-    for /f "usebackq tokens=*" %%f in (`powershell -NoProfile -Command "$f = Get-ChildItem '%BASE_DIR%\Data\KFM\*.xlsx' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($f.Name -match '\d{8}') { $Matches[0] } else { '' }"`) do set "KFM_DATE_STR=%%f"
-
     REM Kiem tra xem co file CSV tam thoi de day Google Sheets khong
     if exist "C:\temp_restore\clean_kfm.csv" (
         echo.
