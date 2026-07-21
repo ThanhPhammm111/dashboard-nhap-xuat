@@ -3,7 +3,12 @@ setlocal
 set "DATE_ARG=%1"
 if "%DATE_ARG%"=="" (
     echo.
-    powershell -Command "Write-Host 'Vui long nhap ngay can update theo dinh dang DDMMYYYY (vi du: UploadKfmDirect.bat 19072026)' -ForegroundColor Red"
+    set /p "DATE_ARG=Nhap ngay can update (dinh dang DDMMYYYY, vi du 19072026): "
+)
+
+if "%DATE_ARG%"=="" (
+    echo.
+    powershell -Command "Write-Host 'Ban da khong nhap ngay!' -ForegroundColor Red"
     pause
     exit /b 1
 )
