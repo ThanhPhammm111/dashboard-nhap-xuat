@@ -18,6 +18,7 @@ set "UPLOAD_SHEETS=N"
 set /p "UPLOAD_SHEETS=Ban co muon day du lieu len Google Sheets khong? (Y/N, mac dinh N): "
 
 set "SCRIPT_DIR=%~dp0"
+set "SRC_DIR=%SCRIPT_DIR%src\"
 for %%I in ("%~dp0..") do set "BASE_DIR=%%~fI"
 
 echo.
@@ -27,8 +28,8 @@ echo ==================================================
 
 REM 1. Dam bao thu muc temp_restore co san va copy download_kfm.js moi nhat
 if not exist "C:\temp_restore\reconcile_script" mkdir "C:\temp_restore\reconcile_script"
-copy /y "%SCRIPT_DIR%download_kfm.js" "C:\temp_restore\reconcile_script\download_kfm.js" >nul
-copy /y "%SCRIPT_DIR%package.json" "C:\temp_restore\reconcile_script\package.json" >nul
+copy /y "%SRC_DIR%download_kfm.js" "C:\temp_restore\reconcile_script\download_kfm.js" >nul
+copy /y "%SRC_DIR%package.json" "C:\temp_restore\reconcile_script\package.json" >nul
 
 REM 2. Chay download_kfm.js voi tham so ngay de tai file
 pushd "C:\temp_restore\reconcile_script"
@@ -53,7 +54,7 @@ set CSC="C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 if not exist %CSC% (
     set CSC="C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
 )
-pushd "%SCRIPT_DIR%"
+pushd "%SRC_DIR%"
 %CSC% /nologo /out:ReconcileData.exe /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ReconcileData.cs
 if %ERRORLEVEL% neq 0 (
     echo.
@@ -67,7 +68,7 @@ popd
 REM 4. Chay chuong trinh ReconcileData o che do --upload-only
 echo.
 echo Dang loc va lam sach du lieu KFM...
-"%SCRIPT_DIR%ReconcileData.exe" --upload-only "%BASE_DIR%\Data\KFM\KFM_%DATE_ARG%.xlsx"
+"%SRC_DIR%ReconcileData.exe" --upload-only "%BASE_DIR%\Data\KFM\KFM_%DATE_ARG%.xlsx"
 if %ERRORLEVEL% neq 0 (
     echo.
     powershell -Command "Write-Host 'Co loi xay ra khi chay lam sach du lieu!' -ForegroundColor Red"
@@ -80,7 +81,7 @@ if /I "%UPLOAD_SHEETS%"=="Y" (
     if exist "C:\temp_restore\clean_kfm.csv" (
         echo.
         echo Dang day du lieu thuc xuat len Google Sheets...
-        call node "%SCRIPT_DIR%upload_to_sheets.js" "C:\temp_restore\clean_kfm.csv"
+        call node "%SRC_DIR%upload_to_sheets.js" "C:\temp_restore\clean_kfm.csv"
         if %ERRORLEVEL% neq 0 (
             echo.
             powershell -Command "Write-Host 'Loi khi day du lieu len Google Sheets!' -ForegroundColor Red"
@@ -116,7 +117,7 @@ popd
 REM 8. Deploy sang Dashboard tong [GitHub Pages]
 echo.
 echo Dang deploy du lieu doi soat sang Dashboard tong [GitHub Pages]...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%deploy_doi_soat.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SRC_DIR%deploy_doi_soat.ps1"
 if %ERRORLEVEL% neq 0 (
     echo.
     powershell -Command "Write-Host 'Co loi xay ra khi deploy sang GitHub Pages.' -ForegroundColor Red"
@@ -125,7 +126,7 @@ if %ERRORLEVEL% neq 0 (
 REM 9. Deploy sang Dashboard GitLab [app-scm.kfm.vn]
 echo.
 echo Dang deploy du lieu doi soat sang GitLab [app-scm.kfm.vn]...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%deploy_to_gitlab.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SRC_DIR%deploy_to_gitlab.ps1"
 if %ERRORLEVEL% neq 0 (
     echo.
     powershell -Command "Write-Host 'Co loi xay ra khi deploy sang GitLab.' -ForegroundColor Red"

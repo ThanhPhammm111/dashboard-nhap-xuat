@@ -8,7 +8,7 @@ REM   - Them Group ID (so am) phia sau, vi du: 5958913327,-100123456789
 set "TELEGRAM_CHATID=5958913327,-4511126388"
 
 set "SCRIPT_DIR=%~dp0"
-for %%I in ("%~dp0..") do set "BASE_DIR=%%~fI"
+for %%I in ("%~dp0..\..") do set "BASE_DIR=%%~fI"
 echo.
 echo ==================================================
 echo   Tu dong tai xuat file KFM.xlsx...

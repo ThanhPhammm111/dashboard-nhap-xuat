@@ -1,7 +1,7 @@
 # PowerShell script to deploy reconciliation dashboard to transport_daily_report repo
 
 $scriptDir = $PSScriptRoot
-$baseDir = Split-Path -Parent $scriptDir
+$baseDir = Split-Path -Parent (Split-Path -Parent $scriptDir)
 
 $repoUrl = "https://github.com/ThanhPhammm111/transport_daily_report.git"
 $tempDir = "C:\temp_deploy\doi_soat_repo"

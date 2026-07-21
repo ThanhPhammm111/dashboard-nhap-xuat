@@ -2,7 +2,7 @@
 # This script copies the generated files, runs pnpm data:build, and pushes changes to GitLab.
 
 $scriptDir = $PSScriptRoot
-$baseDir = Split-Path -Parent $scriptDir # g:\Drive của tôi\Report\Đối chiếu xuất hàng
+$baseDir = Split-Path -Parent (Split-Path -Parent $scriptDir) # g:\Drive của tôi\Report\Đối chiếu xuất hàng
 $parentDir = Split-Path -Parent $baseDir # g:\Drive của tôi\Report
 $gitlabRepoDir = Join-Path $parentDir "transport-daily-report"
 

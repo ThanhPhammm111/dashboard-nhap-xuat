@@ -1,5 +1,5 @@
-$kfmPath = (Get-Item (Join-Path $PSScriptRoot "..\Data\KFM")).FullName
-$abaPath = (Get-Item (Join-Path $PSScriptRoot "..\Data\ABA")).FullName
+$kfmPath = (Get-Item (Join-Path $PSScriptRoot "..\..\Data\KFM")).FullName
+$abaPath = (Get-Item (Join-Path $PSScriptRoot "..\..\Data\ABA")).FullName
 $batPath = (Get-Item (Join-Path $PSScriptRoot "RunReconcile.bat.bat")).FullName
 
 Write-Host "==========================================================" -ForegroundColor Green
