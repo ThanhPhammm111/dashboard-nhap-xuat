@@ -144,15 +144,39 @@ function doPost(e) {
     var range = sheet.getRange(startRow, 1, numRows, numCols);
     range.setValues(targetRows);
 
-    // 5. Drag/Copy formulas down (Optimized: only copy R1C1 formulas, no layout/format copying to avoid timeout)
+    // 5. Drag/Copy formulas down (Optimized & Failsafe: search upwards to find a row containing formulas)
     if (lastRow >= 2) {
       var formulaStartCol = isNhp ? 11 : 9;
       var totalCols = sheet.getLastColumn();
       var numFormulaCols = totalCols - formulaStartCol + 1;
       
       if (numFormulaCols > 0) {
-        var sourceRange = sheet.getRange(lastRow, formulaStartCol, 1, numFormulaCols);
-        var formulasR1C1 = sourceRange.getFormulasR1C1();
+        // Search upwards from lastRow to find a row with formulas (starts with '=')
+        var sourceRowIdx = lastRow;
+        var formulasR1C1 = null;
+        
+        while (sourceRowIdx >= 2) {
+          var testRange = sheet.getRange(sourceRowIdx, formulaStartCol, 1, numFormulaCols);
+          var testFormulas = testRange.getFormulasR1C1();
+          var hasFormula = false;
+          for (var c = 0; c < testFormulas[0].length; c++) {
+            if (testFormulas[0][c] && testFormulas[0][c].indexOf('=') === 0) {
+              hasFormula = true;
+              break;
+            }
+          }
+          if (hasFormula) {
+            formulasR1C1 = testFormulas;
+            break;
+          }
+          sourceRowIdx--;
+        }
+        
+        // If we found a row with formulas, copy them. If not, copy from row 2 as fallback
+        if (!formulasR1C1) {
+          var fallbackRange = sheet.getRange(2, formulaStartCol, 1, numFormulaCols);
+          formulasR1C1 = fallbackRange.getFormulasR1C1();
+        }
         
         // Replicate formulas array for targetRows
         var targetFormulasR1C1 = [];
