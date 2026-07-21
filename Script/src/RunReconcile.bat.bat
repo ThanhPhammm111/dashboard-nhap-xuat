@@ -70,6 +70,10 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
         exit /b 1
     )
     
+    REM Trich xuat ngay doi soat tu ten file KFM moi nhat (ngoai khoi lenh IF de tranh loi cu phap CMD do ngoac don)
+    set "KFM_DATE_STR="
+    for /f "usebackq tokens=*" %%f in (`powershell -NoProfile -Command "$f = Get-ChildItem '%BASE_DIR%\Data\KFM\*.xlsx' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($f.Name -match '\d{8}') { $Matches[0] } else { '' }"`) do set "KFM_DATE_STR=%%f"
+
     REM Kiem tra xem co file CSV tam thoi de day Google Sheets khong
     if exist "C:\temp_restore\clean_kfm.csv" (
         echo.
@@ -81,9 +85,6 @@ if exist "%SCRIPT_DIR%ReconcileData.exe" (
         echo ==================================================
         echo   Doi soat thanh cong 100%%. Tai file Nhap (PR)...
         echo ==================================================
-        
-        REM Trich xuat ngay doi soat tu ten file KFM moi nhat
-        for /f "usebackq tokens=*" %%f in (`powershell -NoProfile -Command "$f = Get-ChildItem '%BASE_DIR%\Data\KFM\*.xlsx' | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($f.Name -match '\d{8}') { $Matches[0] } else { '' }"`) do set "KFM_DATE_STR=%%f"
         
         if not "%KFM_DATE_STR%"="" (
             set "DD=%KFM_DATE_STR:~0,2%"
