@@ -82,7 +82,61 @@ function doPost(e) {
       targetRows.push(row);
     }
 
-    // 3. Append rows to target sheet
+    // 3. Kiem tra trung lap va ghi de du lieu
+    var targetDateObj = targetRows[0][0];
+    if (targetDateObj instanceof Date) {
+      var targetTime = targetDateObj.getTime();
+      var allData = sheet.getDataRange().getValues();
+      var rowsToDelete = [];
+      var existingRows = [];
+      
+      for (var r = 1; r < allData.length; r++) {
+        var dateVal = allData[r][0];
+        if (dateVal instanceof Date && dateVal.getTime() === targetTime) {
+          rowsToDelete.push(r + 1);
+          existingRows.push(allData[r]);
+        }
+      }
+      
+      var isIdentical = false;
+      if (existingRows.length === targetRows.length) {
+        isIdentical = true;
+        for (var i = 0; i < targetRows.length; i++) {
+          if (!isRowEqual(targetRows[i], existingRows[i])) {
+            isIdentical = false;
+            break;
+          }
+        }
+      }
+      
+      if (isIdentical) {
+        return ContentService.createTextOutput("SUCCESS: Data for " + Utilities.formatDate(targetDateObj, Session.getScriptTimeZone(), "dd/MM/yyyy") + " is identical. Skipped upload to avoid duplicates.");
+      }
+      
+      if (rowsToDelete.length > 0) {
+        var ranges = [];
+        var startIdx = rowsToDelete[0];
+        var currentCount = 1;
+        for (var k = 1; k < rowsToDelete.length; k++) {
+          if (rowsToDelete[k] === startIdx + currentCount) {
+            currentCount++;
+          } else {
+            ranges.push({ start: startIdx, count: currentCount });
+            startIdx = rowsToDelete[k];
+            currentCount = 1;
+          }
+        }
+        ranges.push({ start: startIdx, count: currentCount });
+        
+        for (var j = ranges.length - 1; j >= 0; j--) {
+          sheet.deleteRows(ranges[j].start, ranges[j].count);
+        }
+        SpreadsheetApp.flush();
+        lastRow = sheet.getLastRow(); // Cap nhat lai lastRow sau khi xoa
+      }
+    }
+
+    // 4. Append rows to target sheet
     var startRow = lastRow + 1;
     var numRows = targetRows.length;
     var numCols = targetRows[0].length;
@@ -90,7 +144,7 @@ function doPost(e) {
     var range = sheet.getRange(startRow, 1, numRows, numCols);
     range.setValues(targetRows);
 
-    // 4. Drag/Copy formulas down
+    // 5. Drag/Copy formulas down
     // DATA Thực xuất: Formulas start at column 9 (I) to 14 (N)
     // Data thực nhập: Formulas start at column 11 (K) to 26 (Z)
     if (lastRow >= 2) {
@@ -109,4 +163,20 @@ function doPost(e) {
   } catch (error) {
     return ContentService.createTextOutput("ERROR: " + error.message);
   }
+}
+
+function isRowEqual(row1, row2) {
+  // So sanh tat ca cac cot ngoai tru cot index 1 (Loại hàng)
+  for (var k = 0; k < row1.length; k++) {
+    if (k === 1) continue; 
+    var val1 = row1[k];
+    var val2 = row2[k];
+    
+    if (val1 instanceof Date && val2 instanceof Date) {
+      if (val1.getTime() !== val2.getTime()) return false;
+    } else {
+      if (String(val1).trim() !== String(val2).trim()) return false;
+    }
+  }
+  return true;
 }
