@@ -9,6 +9,13 @@ using System.Xml;
 
 namespace ReconcileData
 {
+    class KfmStats
+    {
+        public decimal TotalQty;
+        public int StoreCount;
+        public int RowCount;
+    }
+
     class Program
     {
         static void Main(string[] args)
@@ -53,8 +60,64 @@ namespace ReconcileData
 
                 try
                 {
-                    CleanAndArchiveKfm(targetKfm, archiveFile, kfmDateStr);
+                    var stats = CleanAndArchiveKfm(targetKfm, archiveFile, kfmDateStr);
                     Console.WriteLine("Da loc, luu tru va chuan bi file CSV tam thoi de upload Sheets xong!");
+
+                    string outDir = Path.Combine(rootDir, "Ouput");
+                    if (!Directory.Exists(outDir)) Directory.CreateDirectory(outDir);
+
+                    string dailyStatusFile = Path.Combine(outDir, "status_" + kfmDateStr + ".json");
+                    string dailyResultFile = Path.Combine(outDir, "Result_" + kfmDateStr + ".csv");
+
+                    // Write empty Result_<date>.csv
+                    string header = "Key (ST_Code),ST Code / Abbr,Product Code,Product Name,Category,Loai Hang,KFM Qty (SL Chuyen),ABA Qty (SL Giao),Diff (Lech),Loai Chenh Lech\n";
+                    File.WriteAllText(dailyResultFile, header, Encoding.UTF8);
+
+                    string statusJson = string.Format(
+                        "{{\n  \"lastUpdated\": \"{0}\",\n  \"kfmFile\": \"{1}\",\n  \"kfmDate\": \"{2}\",\n  \"abaFile\": \"Direct Upload\",\n  \"abaDate\": \"{3}\",\n  \"mismatchCount\": 0,\n  \"participatingStores\": {4},\n  \"resultFile\": \"Result_{5}.csv\",\n  \"totalKfmQty\": {6},\n  \"totalAbaQty\": {7}\n}}",
+                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                        Path.GetFileName(targetKfm).Replace("\\", "\\\\").Replace("\"", "\\\""),
+                        FormatDate(kfmDateStr),
+                        FormatDate(kfmDateStr),
+                        stats.StoreCount,
+                        kfmDateStr,
+                        stats.TotalQty,
+                        stats.TotalQty
+                    );
+                    File.WriteAllText(dailyStatusFile, statusJson, Encoding.UTF8);
+                    
+                    // Also write general status.json
+                    string statusFile = Path.Combine(outDir, "status.json");
+                    File.WriteAllText(statusFile, statusJson, Encoding.UTF8);
+                    
+                    // Update history.json
+                    try
+                    {
+                        var statusFiles = Directory.GetFiles(outDir, "status_*.json");
+                        var jsonList = new List<string>();
+                        var sortedFiles = statusFiles.OrderByDescending(f => {
+                            string fn = Path.GetFileNameWithoutExtension(f);
+                            string[] parts = fn.Split('_');
+                            if (parts.Length > 1 && parts[1].Length == 8) {
+                                string d = parts[1];
+                                return d.Substring(4, 4) + d.Substring(2, 2) + d.Substring(0, 2);
+                            }
+                            return fn;
+                        });
+                        
+                        foreach (var f in sortedFiles)
+                        {
+                            jsonList.Add(File.ReadAllText(f));
+                        }
+                        string historyJson = "[\n" + string.Join(",\n", jsonList) + "\n]";
+                        string historyFile = Path.Combine(outDir, "history.json");
+                        File.WriteAllText(historyFile, historyJson, Encoding.UTF8);
+                        Console.WriteLine("Da cap nhat history.json thanh cong!");
+                    }
+                    catch (Exception histEx)
+                    {
+                        Console.WriteLine("Loi khi tao history.json: " + histEx.Message);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -1180,10 +1243,11 @@ namespace ReconcileData
             }
         }
 
-        static void CleanAndArchiveKfm(string srcFile, string destFile, string kfmDateStr)
+        static KfmStats CleanAndArchiveKfm(string srcFile, string destFile, string kfmDateStr)
         {
+            var stats = new KfmStats();
             var kfmData = ReadExcelOrCsv(srcFile);
-            if (kfmData.Count < 1) return;
+            if (kfmData.Count < 1) return stats;
 
             var header = kfmData[0];
             int colBranch = FindCol(header, new[] { "Chi nhánh nhận", "Chi nhanh nhan" });
@@ -1208,6 +1272,9 @@ namespace ReconcileData
             var cleanRows = new List<string[]>();
             // Add Header (exact 8 columns in requested order)
             cleanRows.Add(new[] { "Ngày chuyển hàng", "Loại hàng", "Mã chuyển hàng", "Chi nhánh nhận", "Mã hàng", "Tên hàng", "Đơn vị tính", "Số lượng chuyển" });
+
+            decimal totalQty = 0;
+            var branches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             string currentSlipDate = "";
             for (int i = 1; i < kfmData.Count; i++)
@@ -1261,6 +1328,16 @@ namespace ReconcileData
 
                     string formattedDate = FormatDate(kfmDateStr);
                     cleanRows.Add(new[] { formattedDate, "", slipCode, branch, product, productName, uom, qty });
+
+                    decimal qtyVal = 0;
+                    if (decimal.TryParse(qty.Replace(",", ""), out qtyVal))
+                    {
+                        totalQty += qtyVal;
+                    }
+                    if (!string.IsNullOrEmpty(branch))
+                    {
+                        branches.Add(branch);
+                    }
                 }
             }
 
@@ -1280,6 +1357,11 @@ namespace ReconcileData
             {
                 Console.WriteLine("Loi khi ghi file CSV tam thoi: " + csvEx.Message);
             }
+
+            stats.TotalQty = totalQty;
+            stats.StoreCount = branches.Count;
+            stats.RowCount = cleanRows.Count - 1;
+            return stats;
         }
 
         static void CreateCleanXlsx(string outPath, List<string[]> rows)
