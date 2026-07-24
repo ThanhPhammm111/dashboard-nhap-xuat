@@ -12,11 +12,11 @@
   "totalAbaQty": 103052.8
 },
 {
-  "lastUpdated": "2026-07-24 12:36:50",
+  "lastUpdated": "2026-07-24 12:39:57",
   "kfmFile": "KFM_24072026.xlsx",
   "kfmDate": "24/07/2026",
-  "abaFile": "Copy of Bien_Ban_Giao_Hang_Ngay_24072026.xlsx",
-  "abaDate": "24/07/2026",
+  "abaFile": "Copy of Bien_Ban_Giao_Hang_Ngay_23_07_26.xlsx",
+  "abaDate": "23/07/2026",
   "mismatchCount": 1,
   "participatingStores": 207,
   "resultFile": "Result_24072026.csv",
