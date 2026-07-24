@@ -12,16 +12,28 @@
   "totalAbaQty": 103052.8
 },
 {
-  "lastUpdated": "2026-07-23 11:34:16",
+  "lastUpdated": "2026-07-24 08:42:03",
+  "kfmFile": "KFM_24072026.xlsx",
+  "kfmDate": "24/07/2026",
+  "abaFile": "Copy of Bien_Ban_Giao_Hang_Ngay_24072026.xlsx",
+  "abaDate": "24/07/2026",
+  "mismatchCount": 38,
+  "participatingStores": 207,
+  "resultFile": "Result_24072026.csv",
+  "totalKfmQty": 90768.7,
+  "totalAbaQty": 111928.7
+},
+{
+  "lastUpdated": "2026-07-23 13:37:46",
   "kfmFile": "KFM_23072026.xlsx",
   "kfmDate": "23/07/2026",
-  "abaFile": "Copy of Bien_Ban_Giao_Hang_Ngay_23_07_26.xlsx",
+  "abaFile": "Direct Upload",
   "abaDate": "23/07/2026",
   "mismatchCount": 0,
-  "participatingStores": 206,
+  "participatingStores": 0,
   "resultFile": "Result_23072026.csv",
-  "totalKfmQty": 132368.9,
-  "totalAbaQty": 132368.9
+  "totalKfmQty": 0,
+  "totalAbaQty": 0
 },
 {
   "lastUpdated": "2026-07-22 15:34:00",
