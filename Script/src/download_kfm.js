@@ -138,20 +138,24 @@ const fs = require('fs');
 
     // 3. Apply Filters
     console.log('Opening Filter Drawer...');
-    const filterBtn = page.locator('button:has(svg path[d*="M18,28H14"]), button:has-text("Bộ lọc")').first();
+    const filterBtn = page.locator('div:has(input[name="search_text"]) > button').first();
     await filterBtn.click();
     await page.waitForTimeout(2000);
 
-    // Filter "Nơi chuyển" -> "ABA Quá"
-    console.log('Filtering "Nơi chuyển" to "ABA Quá"...');
+    // Filter "Nơi chuyển" -> CL02, FZ02
+    console.log('Filtering "Nơi chuyển" to CL02, FZ02...');
     const noiChuyenContainer = page.locator('.ant-form-item').filter({ hasText: 'Nơi chuyển' }).first();
-    const noiChuyenInput = noiChuyenContainer.locator('input, [role="combobox"]').first();
+    const noiChuyenInput = noiChuyenContainer.locator('input.ant-select-selection-search-input, input, [role="combobox"]').first();
     await noiChuyenInput.click();
     await page.waitForTimeout(1000);
-    await page.keyboard.insertText('ABA');
-    await page.waitForTimeout(1500);
-    const abaOption = page.locator('.ant-select-item-option, .ant-select-item, [role="option"]').filter({ hasText: 'ABA QUÁ CẢNH' }).first();
-    await abaOption.click();
+
+    const targetBranches = ['CL02', 'FZ02'];
+    for (const b of targetBranches) {
+      await noiChuyenInput.fill(b);
+      await page.waitForTimeout(1500);
+      await page.locator('.ant-select-item-option-content, .ant-select-item-option, [role="option"]', { hasText: b }).first().click();
+      await page.waitForTimeout(500);
+    }
     await page.keyboard.press('Escape');
     await page.waitForTimeout(1000);
 
@@ -174,49 +178,25 @@ const fs = require('fs');
     }
     await page.waitForTimeout(1000);
 
-    // Filter "Ngày tạo" -> Today or Custom Date
+    // Filter "Ngày tạo" strictly -> Today or Custom Date
     const targetDateFormatted = `${dd}/${mm}/${yyyy}`; // dd/mm/yyyy
-    console.log(`Filtering "Ngày tạo" to ${targetDateFormatted}...`);
+    console.log(`Filtering "Ngày tạo" strictly to ${targetDateFormatted}...`);
     const ngayTaoContainer = page.locator('.ant-form-item').filter({ hasText: 'Ngày tạo' }).first();
-    const ngayTaoInput = ngayTaoContainer.locator('input').first();
-    await ngayTaoInput.click();
+    const ngayTaoInputStart = ngayTaoContainer.locator('input').first();
+    const ngayTaoInputEnd = ngayTaoContainer.locator('input').last();
+
+    await ngayTaoInputStart.click();
     await page.waitForTimeout(1000);
-    
-    if (isCustomDate) {
-      console.log(`Typing custom date: ${targetDateFormatted}`);
-      await ngayTaoInput.fill(targetDateFormatted);
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(500);
-      
-      const ngayTaoInputEnd = ngayTaoContainer.locator('input').last();
-      await ngayTaoInputEnd.fill(targetDateFormatted);
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(1000);
-    } else {
-      // Scope the "Hôm nay" button to the picker dropdown to avoid clicking main page elements
-      const homNayBtn = page.locator('.ant-picker-dropdown button:has-text("Hôm nay"), .ant-picker-dropdown a:has-text("Hôm nay"), .ant-picker-dropdown span:has-text("Hôm nay"), .ant-picker-dropdown [class*="preset"]:has-text("Hôm nay"), .ant-picker-dropdown .ant-picker-preset button').first();
-      await homNayBtn.click();
-      await page.waitForTimeout(1000);
 
-      // Verify filter value and apply typing fallback if empty
-      const dateVal = await ngayTaoInput.inputValue();
-      console.log('Date filter value after selection:', dateVal);
+    // Fill both start and end inputs to ensure strict single-day range for Ngày tạo
+    console.log(`Filling Start & End Date for "Ngày tạo": ${targetDateFormatted}`);
+    await ngayTaoInputStart.fill(targetDateFormatted);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
 
-      if (!dateVal) {
-        console.log('Warning: Date filter is empty. Attempting fallback by typing date...');
-        await ngayTaoInput.fill(targetDateFormatted);
-        await page.keyboard.press('Enter');
-        await page.waitForTimeout(500);
-        
-        const ngayTaoInputEnd = ngayTaoContainer.locator('input').last();
-        await ngayTaoInputEnd.fill(targetDateFormatted);
-        await page.keyboard.press('Enter');
-        await page.waitForTimeout(1000);
-        
-        const dateValVerify = await ngayTaoInput.inputValue();
-        console.log('Date filter value after fallback typing:', dateValVerify);
-      }
-    }
+    await ngayTaoInputEnd.fill(targetDateFormatted);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(1000);
 
     // Apply Filter
     console.log('Applying filters...');

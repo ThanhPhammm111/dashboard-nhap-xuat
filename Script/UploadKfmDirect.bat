@@ -56,7 +56,7 @@ if not exist %CSC% (
     set CSC="C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
 )
 pushd "%SRC_DIR%"
-%CSC% /nologo /out:ReconcileData.exe /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ReconcileData.cs
+%CSC% /nologo /codepage:65001 /out:ReconcileData.exe /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ReconcileData.cs
 if %ERRORLEVEL% neq 0 (
     echo.
     powershell -Command "Write-Host 'Co loi khi bien dich ReconcileData.cs!' -ForegroundColor Red"
@@ -94,7 +94,7 @@ if /I "%UPLOAD_SHEETS%"=="Y" (
         
         echo.
         echo ==================================================
-        echo   Dang tai file Nhap (PR) cho ngay %DATE_ARG%...
+        echo   Dang tai file Nhap - PR - cho ngay %DATE_ARG%...
         echo ==================================================
         
         set "DD=%DATE_ARG:~0,2%"

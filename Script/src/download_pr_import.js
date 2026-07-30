@@ -123,28 +123,26 @@ const fs = require('fs');
 
     // 3. Open filter panel
     console.log('Opening filter panel...');
-    const funnelButton = page.locator('button.kf-btn').first();
+    const funnelButton = page.locator('div:has(input[name="search_text"]) > button').first();
+    console.log('Waiting for filter button to be visible (up to 90s)...');
+    await funnelButton.waitFor({ state: 'visible', timeout: 90000 });
     await funnelButton.click();
     await page.waitForTimeout(2000);
 
-    // 4. Select Branch (LHABA, QCABA)
-    console.log('Selecting Branches (LHABA, QCABA)...');
+    // 4. Select Branch (CL01, CL02, FZ01, FZ02)
+    console.log('Selecting Branches (CL01, CL02, FZ01, FZ02)...');
     const branchContainer = page.locator('.ant-form-item', { hasText: 'Chi nhánh' });
     await branchContainer.locator('.ant-select-selector').click();
     await page.waitForTimeout(1000);
     const branchSearchInput = branchContainer.locator('input.ant-select-selection-search-input');
 
-    // Select LHABA
-    await branchSearchInput.fill('LHABA');
-    await page.waitForTimeout(1500);
-    await page.locator('.ant-select-item-option-content', { hasText: 'LHABA - KHO ABA LƯU HÀNG' }).first().click();
-    await page.waitForTimeout(500);
-
-    // Select QCABA
-    await branchSearchInput.fill('QCABA');
-    await page.waitForTimeout(1500);
-    await page.locator('.ant-select-item-option-content', { hasText: 'QCABA - KHO ABA QUÁ CẢNH' }).first().click();
-    await page.waitForTimeout(500);
+    const targetBranches = ['CL01', 'CL02', 'FZ01', 'FZ02'];
+    for (const b of targetBranches) {
+      await branchSearchInput.fill(b);
+      await page.waitForTimeout(1500);
+      await page.locator('.ant-select-item-option-content', { hasText: b }).first().click();
+      await page.waitForTimeout(500);
+    }
 
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
@@ -211,6 +209,8 @@ const fs = require('fs');
     // 9. Click "Xuất file" using bulletproof loop
     console.log('Opening "Xuất file" dropdown...');
     const exportBtn = page.locator('button', { hasText: 'Xuất file' }).first();
+    console.log('Waiting for "Xuất file" button to be visible...');
+    await exportBtn.waitFor({ state: 'visible', timeout: 30000 });
     const detailOption = page.locator('.ant-dropdown-menu-item, li[role="menuitem"]', { hasText: 'Xuất file chi tiết' }).first();
     
     let isOpen = false;

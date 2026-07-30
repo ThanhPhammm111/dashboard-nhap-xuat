@@ -54,3 +54,50 @@ Tài liệu này ghi lại toàn bộ lỗi đã phát hiện, phương án xử
 ## 4. Công việc tiếp theo cho ngày mai (22/07/2026)
 * Nhận danh sách các lỗi phát sinh mới hoặc các tính năng cần sửa đổi từ người dùng.
 * Tiến hành rà soát các thay đổi và tối ưu tiếp các tệp liên quan.
+
+---
+
+## 5. Nhật ký cập nhật logic ngày 28/07/2026
+
+### 5.1. Thay đổi bộ lọc Chi nhánh PR (download_pr_import.js)
+* **Yêu cầu:** Loại bỏ tiêu chí chọn chi nhánh cũ (`LHABA`, `QCABA`) và thay bằng nhóm chi nhánh mới: `CL01`, `CL02`, `FZ01`, `FZ02`.
+* **Giải pháp:** Cập nhật lại khối lệnh chọn chi nhánh trong [download_pr_import.js](file:///g:/Drive%20c%E1%BB%A7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/src/download_pr_import.js). Sử dụng vòng lặp duyệt qua danh sách chi nhánh mới, giúp Playwright tự động tìm kiếm và click chọn chính xác trên giao diện Web UI SCM.
+
+### 5.2. Sửa lỗi lệch cột và lọc bỏ trạng thái Hủy trong Booking (ReconcileData.cs)
+* **Vấn đề phát sinh:** Dữ liệu Booking ngày 28/07 bị đẩy lên Google Sheets sai lệch cột (cột số lượng hiển thị tên chi nhánh, v.v.).
+* **Nguyên nhân:**
+  1. Cấu trúc cột của file Excel Booking xuất từ SCM hệ thống bị thay đổi thứ tự (Ví dụ: `Nơi nhận` chuyển sang cột H, `Số lượng y/c chuyển` sang cột J, `Trạng thái` sang cột R, `Ngày chuyển` sang cột M).
+  2. Lệnh biên dịch C# (`csc.exe`) trong các tệp `.bat` chạy trước đây thiếu cờ `/codepage:65001`. Điều này làm các chuỗi ký tự tiếng Việt có dấu dùng để so khớp tiêu đề cột (như `"Ngày chuyển mong muốn"`, `"Nơi nhận"`,...) bị lỗi font khi thực thi. Hàm tìm kiếm `FindCol` trả về `-1` (không tìm thấy) và buộc hệ thống sử dụng các vị trí cột mặc định cũ lỗi thời.
+  3. Cột `Nơi nhận` bị nhận nhầm sang cột `Nơi nhận (viết tắt)` do so khớp chứa chuỗi (partial match). Cột `Trạng thái` bị nhận nhầm sang `Trạng thái đẩy ABA` dẫn đến bộ lọc không thể nhận biết trạng thái `Đã hủy` để loại bỏ.
+* **Cách khắc phục:**
+  1. Thêm cờ biên dịch `/codepage:65001` vào [RunReconcile.bat.bat](file:///g:/Drive%20c%E1%BB%A7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/src/RunReconcile.bat.bat) và [UploadKfmDirect.bat](file:///g:/Drive%20c%E1%BB%A7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/UploadKfmDirect.bat) để hỗ trợ đầy đủ font UTF-8.
+  2. Viết lại hàm so khớp chi tiết cho `colBranch` trong [ReconcileData.cs](file:///g:/Drive%20c%E1%BB%A7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/src/ReconcileData.cs) (bỏ qua cột chứa từ `"viết tắt"`/`"viet tat"`).
+  3. Viết lại hàm so khớp tuyệt đối (exact match) cho cột `colStatus` để lấy chính xác cột `Trạng thái` (cột R), qua đó lọc bỏ thành công **3.402 dòng rác** ở trạng thái `Đã hủy` (giảm tổng dòng từ 33.535 xuống 30.133 dòng sạch).
+  4. Cập nhật các vị trí cột fallback mặc định mới nhất của cấu trúc ngày 28/07 làm phương án dự phòng.
+
+### 5.3. Tích hợp các tệp lệnh và tối ưu hóa thư mục
+* **Yêu cầu:** Gộp hai tệp chạy độc lập `ChayBooking_Sheet.bat` và `ChayTaiPR_Sheet.bat` chạy song song để tăng hiệu suất.
+* **Giải pháp:**
+  1. Tạo tệp gộp mới [ChayGop_PR_Booking.bat](file:///g:/Drive%20c%E1%BB%A7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/ChayGop_PR_Booking.bat). Sử dụng lệnh `start` của CMD để chạy song song trực tiếp 2 tiến trình PowerShell (`process_pr_import.ps1` và `process_booking.ps1`) trong 2 cửa sổ độc lập.
+  2. Xóa bỏ hai tệp cũ `ChayBooking_Sheet.bat` và `ChayTaiPR_Sheet.bat` để tối giản thư mục dự án.
+
+### 5.4. Chuyển đổi sang Chế độ chỉ tải lên (Upload-Only) và lọc trạng thái hủy KFM
+* **Yêu cầu:** Loại bỏ khâu đối soát với dữ liệu nhà xe ABA và DATA ST. Khi tải xong file KFM, thực hiện làm sạch dữ liệu (loại bỏ các sản phẩm công cụ và các phiếu chuyển hàng ở trạng thái hủy) rồi đẩy thẳng lên Google Sheets.
+* **Giải pháp:**
+  1. Cấu hình lại [RunReconcile.bat.bat](file:///g:/Drive%20c%E1%BB%A7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/src/RunReconcile.bat.bat) để gọi `ReconcileData.exe` với tham số `--upload-only` thay vì chạy luồng đối soát 3 bên như trước.
+  2. Cập nhật phương thức `CleanAndArchiveKfm` và vòng lặp load dữ liệu KFM của `Program.Main` trong [ReconcileData.cs](file:///g:/Drive%20c%E1%BB%A7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/src/ReconcileData.cs):
+     * Tự động tìm kiếm cột `Trạng thái` / `Trang thai` trong tệp Excel KFM.
+     * Quét và bỏ qua (skip) các dòng dữ liệu có trạng thái chứa chữ `"hủy"` / `"huy"` (ví dụ: `Đã hủy`) của phiếu chuyển hàng KFM.
+     * Tiếp tục duy trì việc loại bỏ mã hàng bắt đầu bằng ký tự `"C"` (sản phẩm công cụ dụng cụ).
+
+### 5.5. Nhật ký cập nhật logic Ngày 29/07/2026: Xử lý Booking theo Ngày chuyển mong muốn & Chế độ Ghi đè thông minh
+* **Lọc chính xác theo cột "Ngày chuyển hàng mong muốn":**
+  * Đã bổ sung tham số `targetDateFilter` vào phương thức `ProcessBooking` trong [ReconcileData.cs](file:///g:/Drive%20c%E1%BB%a7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/src/ReconcileData.cs).
+  * Hệ thống lọc chính xác từng dòng trong file Excel theo giá trị cột **"Ngày chuyển hàng mong muốn"** (bỏ qua các dòng không khớp với Ngày D / Ngày D+1).
+* **Phân tách 2 file script .bat độc lập:**
+  * **[ChayGop_PR_Booking.bat](file:///g:/Drive%20c%E1%BB%a7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/ChayGop_PR_Booking.bat)**: Chạy cho **Ngày D (Hôm nay)** bằng cách gọi `process_booking.ps1 -DayOffset 0`.
+  * **[ChayDataBookingdukien.bat](file:///g:/Drive%20c%E1%BB%a7a%20t%C3%B4i/Report/%C4%90%E1%BB%91i%20chi%E1%BA%BFu%20xu%E1%BA%A5t%20h%C3%A0ng/Script/ChayDataBookingdukien.bat)** (và `ChayDataBooking.bat`): Chạy cho **Ngày D+1 (Ngày mai / Dự kiến)** bằng cách gọi `process_booking.ps1 -DayOffset 1`.
+* **Cơ chế Ghi đè thông minh trên Google Sheets (Google Apps Script):**
+  * Khi đẩy dữ liệu cùng một ngày lên Google Sheets tab `DATA Booking`, Google Apps Script tự động phát hiện và **xóa toàn bộ các dòng cũ của ngày đó**, sau đó **ghi đè bộ dữ liệu mới nhất** vào.
+  * Dữ liệu của các ngày khác được **giữ nguyên 100%**, đảm bảo không bao giờ trùng lặp hay mất dữ liệu lịch sử.
+

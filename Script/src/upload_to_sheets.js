@@ -3,7 +3,7 @@ const path = require('path');
 
 // Configuration
 const csvPath = process.argv[2] || 'C:\\temp_restore\\clean_kfm.csv';
-const webAppUrl = 'https://script.google.com/macros/s/AKfycbzaVLooO814joo92lj9Bt4eQ4UGCJ52o0SpdwSzds_jN6P1hpsf9-oJRRc0e_4JIZ2fZg/exec';
+const webAppUrl = 'https://script.google.com/macros/s/AKfycbxjgLp7BLGvrobzvjZkzQIrZ-l2bv63gRipVB-u0SKP52v6DdEMIP3kKJB87hF3DExTgw/exec';
 
 if (!fs.existsSync(csvPath)) {
   console.error(`\n=== GOOGLE SHEETS UPLOAD FAILED ===`);
@@ -53,29 +53,92 @@ async function upload() {
     return;
   }
 
-  const payload = {
-    sheetName: process.argv[3] || 'DATA Thực xuất',
-    data: data
-  };
+  let sheetName = 'DATA Thực xuất';
+  if (process.argv[3]) {
+    const arg = process.argv[3];
+    const argLower = arg.toLowerCase();
+    if (argLower.includes('nhập') || argLower.includes('nhap') || argLower.includes('import')) {
+      sheetName = 'Data thực nhập';
+    } else if (argLower.includes('xuất') || argLower.includes('xuat') || argLower.includes('export')) {
+      sheetName = 'DATA Thực xuất';
+    } else if (argLower.includes('booking')) {
+      sheetName = 'DATA Booking';
+    } else {
+      sheetName = arg;
+    }
+  }
 
-  console.log(`Dang gui du lieu len Google Sheets [Tab: ${payload.sheetName}] qua Apps Script...`);
-  const response = await fetch(webAppUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
- 
-   const text = await response.text();
-   console.log(`Ket qua phan hoi tu Google Apps Script: ${text}`);
- 
-   if (text.includes('SUCCESS')) {
-     console.log('=== GOOGLE SHEETS UPLOAD SUCCESSFUL ===\n');
-   } else {
-     throw new Error(`Google Apps Script khong tra ve SUCCESS. Chi tiet: ${text}`);
-   }
- }
+  const mode = process.argv[4] || 'replace';
+  const header = data[0];
+  const rows = data.slice(1);
+  const totalDataRows = rows.length;
+  const BATCH_SIZE = 3000;
+  const totalBatches = Math.ceil(totalDataRows / BATCH_SIZE);
+
+  console.log(`Tong so dòng du lieu: ${totalDataRows}. Chia thanh ${totalBatches} đot (Moi đot ${BATCH_SIZE} dòng)...`);
+
+  for (let i = 0; i < totalBatches; i++) {
+    const startIdx = i * BATCH_SIZE;
+    const endIdx = Math.min((i + 1) * BATCH_SIZE, totalDataRows);
+    const batchRows = rows.slice(startIdx, endIdx);
+    
+    // First batch uses requested mode ('replace' to clear old rows for date), subsequent batches use 'append'
+    const currentMode = (i === 0) ? mode : 'append';
+    const isLastBatch = (i === totalBatches - 1);
+    const payloadData = [header, ...batchRows];
+    
+    const payload = {
+      sheetName: sheetName,
+      mode: currentMode,
+      data: payloadData,
+      isLastBatch: isLastBatch
+    };
+
+    let success = false;
+    let attempt = 0;
+    const maxAttempts = 3;
+    let lastError = null;
+
+    while (!success && attempt < maxAttempts) {
+      attempt++;
+      try {
+        console.log(`Dang gui đot ${i + 1}/${totalBatches} (${batchRows.length} dòng)...`);
+        
+        const response = await fetch(webAppUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(300000) // 5 minutes timeout per batch
+        });
+
+        const text = await response.text();
+        if (!text.includes('SUCCESS')) {
+          const cleanText = text.length > 300 ? text.substring(0, 300) + '...' : text;
+          throw new Error(`Google Apps Script khong tra ve SUCCESS. Chi tiet: ${cleanText}`);
+        }
+
+        console.log(`  ✓ Đot ${i + 1}/${totalBatches} thanh cong!`);
+        success = true;
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        break;
+      } catch (err) {
+        lastError = err;
+        console.error(`  ✕ Loi o đot ${i + 1}/${totalBatches} (lan ${attempt}): ${err.message}`);
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    }
+
+    if (!success) {
+      throw new Error(`That bai hoan toan o đot ${i + 1} sau ${maxAttempts} lan thu. Loi cuoi: ${lastError ? lastError.message : 'Unknown'}`);
+    }
+  }
+
+  console.log('=== GOOGLE SHEETS UPLOAD ALL BATCHES SUCCESSFUL ===\n');
+}
 
 upload().catch(err => {
   console.error('\n=== GOOGLE SHEETS UPLOAD ERROR ===');

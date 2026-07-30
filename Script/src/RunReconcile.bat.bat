@@ -3,11 +3,16 @@ setlocal
 
 set "GIT_ASK_YESNO=false"
 
-set "TELEGRAM_TOKEN=8902427051:AAHpWe9UxoGplPd6XbkjCsc5A7a8Y2LMs7Y"
-REM Danh sach Chat ID, cach nhau bang dau phay. Them Group ID moi vao day.
-REM   - 5958913327 = Inbox ca nhan cua ban
-REM   - Them Group ID (so am) phia sau, vi du: 5958913327,-100123456789
-set "TELEGRAM_CHATID=5958913327,-4511126388"
+if "%USER_RUN%"=="1" (
+    set "TELEGRAM_TOKEN=8902427051:AAHpWe9UxoGplPd6XbkjCsc5A7a8Y2LMs7Y"
+    REM Gui thong bao ve Telegram Ca nhan (5958913327) va cac Group Telegram (-5560060768, -4511126388)
+    set "TELEGRAM_CHATID=5958913327,-5560060768,-4511126388"
+) else (
+    echo.
+    echo [SILENT MODE] Script dang duoc chay boi Agent test - Tat thong bao Telegram.
+    set "TELEGRAM_TOKEN="
+    set "TELEGRAM_CHATID="
+)
 
 set "SCRIPT_DIR=%~dp0"
 for %%I in ("%~dp0..\..") do set "BASE_DIR=%%~fI"
@@ -67,69 +72,35 @@ if not exist %CSC% (
 )
 
 pushd "%SCRIPT_DIR%"
-%CSC% /nologo /out:ReconcileData.exe /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ReconcileData.cs
+%CSC% /nologo /codepage:65001 /out:ReconcileData.exe /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ReconcileData.cs
 popd
 
 if exist "%SCRIPT_DIR%ReconcileData.exe" (
+    REM Xoa file CSV tam cu (neu co) de tranh truong hop dung nham file rac tu lan chay truoc
+    if exist "C:\temp_restore\clean_kfm.csv" del "C:\temp_restore\clean_kfm.csv"
+    if exist "C:\temp_restore\clean_import.csv" del "C:\temp_restore\clean_import.csv"
+
     echo.
     echo.
-    echo Dang chay chuong trinh doi soat...
-    "%SCRIPT_DIR%ReconcileData.exe" "%BASE_DIR%\Data\Data ST" "%BASE_DIR%\Data\KFM" "%BASE_DIR%\Data\ABA" "%BASE_DIR%\Ouput\Result.csv" "%TELEGRAM_TOKEN%" "%TELEGRAM_CHATID%"
+    echo Dang chay chuong trinh direct upload - Upload-Only...
+    "%SCRIPT_DIR%ReconcileData.exe" --upload-only "%BASE_DIR%\Data\KFM\%LATEST_FILE%"
     if %ERRORLEVEL% neq 0 (
         echo.
-        powershell -Command "Write-Host 'Co loi xay ra trong qua trinh chay doi soat.' -ForegroundColor Red"
+        powershell -Command "Write-Host 'Co loi xay ra trong qua trinh chay upload-only.' -ForegroundColor Red"
         exit /b 1
     )
     
-    REM Kiem tra xem co file CSV tam thoi de day Google Sheets khong
+    REM Kiem tra xem co file CSV tam thoi de day Google Sheets khong - chi co khi doi soat khop 100%
     if exist "C:\temp_restore\clean_kfm.csv" (
         echo.
         echo Dang day du lieu thuc xuat len Google Sheets...
-        call node "%SCRIPT_DIR%upload_to_sheets.js" "C:\temp_restore\clean_kfm.csv" "DATA Thực xuất"
-        del "C:\temp_restore\clean_kfm.csv"
-        
-        echo.
-        echo ==================================================
-        echo   Doi soat thanh cong 100%%. Tai file Nhap PR...
-        echo ==================================================
-        
-        if not "%KFM_DATE_STR%" == "" (
-            set "DD=%KFM_DATE_STR:~0,2%"
-            set "MM=%KFM_DATE_STR:~2,2%"
-            set "YYYY=%KFM_DATE_STR:~4,4%"
-            set "FORMATTED_DATE=%DD%/%MM%/%YYYY%"
-            
-            echo Ngay doi soat xac dinh: %%FORMATTED_DATE%%
-            
-            REM Che do chay download tool
-            if not exist "C:\temp_restore\reconcile_script" mkdir "C:\temp_restore\reconcile_script"
-            copy /y "%SCRIPT_DIR%download_pr_import.js" "C:\temp_restore\reconcile_script\download_pr_import.js" >nul
-            copy /y "%SCRIPT_DIR%package.json" "C:\temp_restore\reconcile_script\package.json" >nul
-            
-            pushd "C:\temp_restore\reconcile_script"
-            call node download_pr_import.js "%%FORMATTED_DATE%%"
-            if %ERRORLEVEL% equ 0 (
-                popd
-                set "PR_FILE=%BASE_DIR%\Data\Nhập\PR_%%KFM_DATE_STR%%.xlsx"
-                if exist "%%PR_FILE%%" (
-                    echo.
-                    echo Dang xu ly file PR Excel va tao CSV thuc nhap...
-                    "%SCRIPT_DIR%ReconcileData.exe" --process-import "%%PR_FILE%%" "C:\temp_restore\clean_import.csv" "%%KFM_DATE_STR%%"
-                    
-                    if exist "C:\temp_restore\clean_import.csv" (
-                        echo Dang day du lieu thuc nhap len Google Sheets...
-                        call node "%SCRIPT_DIR%upload_to_sheets.js" "C:\temp_restore\clean_import.csv" "Data thực nhập"
-                        del "C:\temp_restore\clean_import.csv"
-                    )
-                ) else (
-                    powershell -Command "Write-Host 'Loi: Khong tim thay file PR da tai tai %%PR_FILE%%' -ForegroundColor Red"
-                )
-            ) else (
-                popd
-                powershell -Command "Write-Host 'Loi khi tu dong tai file PR!' -ForegroundColor Red"
-            )
+        call node "%SCRIPT_DIR%upload_to_sheets.js" "C:\temp_restore\clean_kfm.csv" "export"
+        if %ERRORLEVEL% neq 0 (
+            echo.
+            powershell -Command "Write-Host 'Loi khi upload du lieu xuat len Google Sheets!' -ForegroundColor Red"
+            del "C:\temp_restore\clean_kfm.csv"
         ) else (
-            powershell -Command "Write-Host 'Khong xac dinh duoc ngay doi soat tu file KFM.' -ForegroundColor Red"
+            del "C:\temp_restore\clean_kfm.csv"
         )
     )
     

@@ -1,11 +1,12 @@
+$env:USER_RUN = "1"
 $kfmPath = (Get-Item (Join-Path $PSScriptRoot "..\..\Data\KFM")).FullName
 $abaPath = (Get-Item (Join-Path $PSScriptRoot "..\..\Data\ABA")).FullName
 $batPath = (Get-Item (Join-Path $PSScriptRoot "RunReconcile.bat.bat")).FullName
 
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "  HE THONG THEO DOI TU DONG POLLING (REAL-TIME AUTO-MONITOR)" -ForegroundColor Green
-Write-Host "  Dang theo doi thu muc Data qua co che quet chu dong..." -ForegroundColor Cyan
-Write-Host "  He thong se tu dong chay doi soat khi co file moi duoc up vao." -ForegroundColor Yellow
+Write-Host "  HE THONG THEO DOI TU DONG DINH KY (15 PHUT / LAN)" -ForegroundColor Green
+Write-Host "  Dang theo doi thu muc Data chu dong theo chu ky 15 phut..." -ForegroundColor Cyan
+Write-Host "  He thong se quet va tu dong chay doi soat khi co file moi." -ForegroundColor Yellow
 Write-Host "  Nhan Ctrl + C de dung theo doi." -ForegroundColor Red
 Write-Host "==========================================================" -ForegroundColor Green
 
@@ -30,7 +31,8 @@ Write-Host "Da hoan thanh doi soat khoi dong! Bat dau theo doi thay doi..." -For
 Write-Host "----------------------------------------------------------" -ForegroundColor Gray
 
 while ($true) {
-    Start-Sleep -Seconds 3
+    Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Cho 15 phut cho lan quet tiep theo..." -ForegroundColor Gray
+    Start-Sleep -Seconds 900
     $currentState = Get-FilesState
     $hasNewOrChangedFile = $false
     $changedFileName = ""

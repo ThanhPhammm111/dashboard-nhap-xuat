@@ -1,5 +1,6 @@
 @echo off
 title Doi Soat Xuat Hang Ngay - Antigravity
+set "USER_RUN=1"
 echo Dang chay doi soat, cap nhat du lieu va gui bao cao...
 call "%~dp0src\RunReconcile.bat.bat"
 if %ERRORLEVEL% equ 0 (

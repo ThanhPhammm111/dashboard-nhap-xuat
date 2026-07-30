@@ -1,12 +1,12 @@
 ﻿{
-  "lastUpdated": "2026-07-28 15:56:14",
-  "kfmFile": "KFM_28072026.xlsx",
-  "kfmDate": "28/07/2026",
+  "lastUpdated": "2026-07-30 10:21:01",
+  "kfmFile": "KFM_30072026.xlsx",
+  "kfmDate": "30/07/2026",
   "abaFile": "Direct Upload",
-  "abaDate": "28/07/2026",
+  "abaDate": "30/07/2026",
   "mismatchCount": 0,
-  "participatingStores": 207,
-  "resultFile": "Result_28072026.csv",
-  "totalKfmQty": 113152.8,
-  "totalAbaQty": 113152.8
+  "participatingStores": 210,
+  "resultFile": "Result_30072026.csv",
+  "totalKfmQty": 111851.2,
+  "totalAbaQty": 111851.2
 }

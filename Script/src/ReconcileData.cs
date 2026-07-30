@@ -23,6 +23,24 @@ namespace ReconcileData
             System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
             System.Threading.Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
 
+            if (args.Length >= 3 && args[0] == "--process-booking")
+            {
+                string bookingExcelFile = args[1];
+                string csvOutputFile = args[2];
+                string targetDateFilter = args.Length >= 4 ? args[3] : null;
+                try
+                {
+                    ProcessBooking(bookingExcelFile, csvOutputFile, targetDateFilter);
+                    Console.WriteLine("SUCCEED: Processed Booking Excel to CSV.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("ERROR: " + ex.Message);
+                    Environment.Exit(1);
+                }
+                return;
+            }
+
             if (args.Length == 4 && args[0] == "--process-import")
             {
                 string prExcelFile = args[1];
@@ -162,6 +180,9 @@ namespace ReconcileData
             if (string.IsNullOrEmpty(kfmFile)) { Console.WriteLine("Khong tim thay file KFM!"); return; }
             if (string.IsNullOrEmpty(abaFile)) { Console.WriteLine("Khong tim thay file ABA!"); return; }
 
+            // Clean up old temp CSV if left over from previous runs
+            try { if (File.Exists(@"C:\temp_restore\clean_kfm.csv")) File.Delete(@"C:\temp_restore\clean_kfm.csv"); } catch {}
+
             Console.WriteLine("Su dung file DATA ST: " + Path.GetFileName(dataStFile));
             Console.WriteLine("Su dung file KFM: " + Path.GetFileName(kfmFile));
             Console.WriteLine("Su dung file ABA: " + Path.GetFileName(abaFile));
@@ -171,6 +192,21 @@ namespace ReconcileData
                 // Date check
                 string kfmDateStr = ExtractDate(kfmFile);
                 string abaDateStr = ExtractDate(abaFile);
+
+                if (string.IsNullOrEmpty(kfmDateStr) && !string.IsNullOrEmpty(abaDateStr))
+                {
+                    kfmDateStr = abaDateStr;
+                }
+                else if (string.IsNullOrEmpty(abaDateStr) && !string.IsNullOrEmpty(kfmDateStr))
+                {
+                    abaDateStr = kfmDateStr;
+                }
+
+                if (string.IsNullOrEmpty(kfmDateStr))
+                {
+                    kfmDateStr = DateTime.Now.ToString("ddMMyyyy");
+                }
+
                 bool dateMismatch = false;
                 if (!string.IsNullOrEmpty(kfmDateStr) && !string.IsNullOrEmpty(abaDateStr) && kfmDateStr != abaDateStr)
                 {
@@ -221,10 +257,21 @@ namespace ReconcileData
                 // Fallbacks based on structure
                 if (kfmColBranch == -1) kfmColBranch = 3;
                 if (kfmColProduct == -1) kfmColProduct = 7;
-                int kfmColProductName = FindCol(kfmData[0], new[] { "Tên hàng", "Ten hang" });
                 if (kfmColQty == -1) kfmColQty = 10;
+                int kfmColProductName = FindCol(kfmData[0], new[] { "Tên hàng", "Ten hang" });
                 if (kfmColProductName == -1) kfmColProductName = 8;
                 if (kfmColDate == -1) kfmColDate = 0;
+                int kfmColNguoiTao = FindCol(kfmData[0], new[] { "Người tạo", "Nguoi tao" });
+                int kfmColStatus = -1;
+                for (int j = 0; j < kfmData[0].Length; j++)
+                {
+                    string h = kfmData[0][j].Trim();
+                    if (h.Equals("Trạng thái", StringComparison.OrdinalIgnoreCase) || h.Equals("Trang thai", StringComparison.OrdinalIgnoreCase))
+                    {
+                        kfmColStatus = j;
+                        break;
+                    }
+                }
 
                 // kfmDict: Key -> Total Qty
                 var kfmDict = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
@@ -238,25 +285,31 @@ namespace ReconcileData
                     var row = kfmData[i];
                     if (row.Length > Math.Max(kfmColBranch, Math.Max(kfmColProduct, kfmColQty)))
                     {
-                        // Keep track of date (handling merged cells/grouping)
-                        if (row.Length > kfmColDate)
+                        // Keep track of date (handling merged cells/grouping - check Người tạo first as requested)
+                        string dVal = "";
+                        if (kfmColNguoiTao != -1 && row.Length > kfmColNguoiTao && !string.IsNullOrEmpty(row[kfmColNguoiTao]))
                         {
-                            string dVal = row[kfmColDate].Trim();
-                            if (!string.IsNullOrEmpty(dVal))
+                            dVal = row[kfmColNguoiTao].Trim();
+                        }
+                        if (string.IsNullOrEmpty(dVal) && row.Length > kfmColDate)
+                        {
+                            dVal = row[kfmColDate].Trim();
+                        }
+
+                        if (!string.IsNullOrEmpty(dVal))
+                        {
+                            var dMatch = System.Text.RegularExpressions.Regex.Match(dVal, @"\d{2}/\d{2}/\d{4}");
+                            if (dMatch.Success)
                             {
-                                var dMatch = System.Text.RegularExpressions.Regex.Match(dVal, @"\d{2}/\d{2}/\d{4}");
-                                if (dMatch.Success)
+                                currentSlipDate = dMatch.Value.Replace("/", "");
+                            }
+                            else
+                            {
+                                var dMatch2 = System.Text.RegularExpressions.Regex.Match(dVal, @"\d{4}-\d{2}-\d{2}");
+                                if (dMatch2.Success)
                                 {
-                                    currentSlipDate = dMatch.Value.Replace("/", "");
-                                }
-                                else
-                                {
-                                    var dMatch2 = System.Text.RegularExpressions.Regex.Match(dVal, @"\d{4}-\d{2}-\d{2}");
-                                    if (dMatch2.Success)
-                                    {
-                                        string[] p = dMatch2.Value.Split('-');
-                                        currentSlipDate = p[2] + p[1] + p[0];
-                                    }
+                                    string[] p = dMatch2.Value.Split('-');
+                                    currentSlipDate = p[2] + p[1] + p[0];
                                 }
                             }
                         }
@@ -265,6 +318,16 @@ namespace ReconcileData
                         if (!string.IsNullOrEmpty(kfmDateStr) && !string.IsNullOrEmpty(currentSlipDate) && currentSlipDate != kfmDateStr)
                         {
                             continue;
+                        }
+
+                        // Filter out canceled slips
+                        if (kfmColStatus != -1 && row.Length > kfmColStatus)
+                        {
+                            string statusVal = row[kfmColStatus].Trim();
+                            if (IsCanceledStatus(statusVal))
+                            {
+                                continue;
+                            }
                         }
 
                         string branch = row[kfmColBranch].Trim();
@@ -332,6 +395,12 @@ namespace ReconcileData
                     if (row.Length > Math.Max(abaColST, Math.Max(abaColProduct, abaColQty)))
                     {
                         string stCode = row[abaColST].Trim();
+                        // Normalize ABA ST Code: if numeric (e.g. "156"), add "A" prefix to match "A156"
+                        if (!stCode.StartsWith("A", StringComparison.OrdinalIgnoreCase) && System.Text.RegularExpressions.Regex.IsMatch(stCode, @"^\d+$"))
+                        {
+                            stCode = "A" + stCode;
+                        }
+
                         string product = row[abaColProduct].Trim();
                         string qtyStr = row[abaColQty].Trim().Replace(",", "");
                         string productName = (row.Length > abaColProductName) ? row[abaColProductName].Trim() : "";
@@ -825,26 +894,33 @@ namespace ReconcileData
 
                     // Archive KFM (Clean columns if 100% match)
                     string dateStamp = DateTime.Now.ToString("yyyy-MM-dd");
+                    DateTime parsedDate = ParseDateStr(kfmDateStr);
+                    if (parsedDate != DateTime.MinValue) dateStamp = parsedDate.ToString("yyyy-MM-dd");
+                    
                     string archiveDir = Path.Combine(rootDir, "Archive", dateStamp);
                     if (!Directory.Exists(archiveDir)) Directory.CreateDirectory(archiveDir);
                     
-                    if (Path.GetFullPath(kfmFile) != Path.GetFullPath(kfmTarget) && File.Exists(kfmFile))
+                    string archiveFileName = string.IsNullOrEmpty(kfmDateStr) ? Path.GetFileName(kfmFile) : ("KFM_" + kfmDateStr + ".xlsx");
+                    string archiveFile = Path.Combine(archiveDir, archiveFileName);
+
+                    if (stLechList.Count == 0)
                     {
-                        string archiveFile = Path.Combine(archiveDir, Path.GetFileName(kfmFile));
-                        if (File.Exists(archiveFile)) File.Delete(archiveFile);
-                        
-                        if (stLechList.Count == 0)
+                        Console.WriteLine("Doi soat thanh cong 100%. Dang loc cot, luu tru file KFM sach va tao CSV tam...");
+                        CleanAndArchiveKfm(kfmFile, archiveFile, kfmDateStr);
+                        if (Path.GetFullPath(kfmFile) != Path.GetFullPath(kfmTarget) && File.Exists(kfmFile))
                         {
-                            Console.WriteLine("Doi soat thanh cong 100%. Dang loc cot va luu tru file KFM sach...");
-                            CleanAndArchiveKfm(kfmFile, archiveFile, kfmDateStr);
                             File.Delete(kfmFile);
                         }
-                        else
+                    }
+                    else
+                    {
+                        if (Path.GetFullPath(kfmFile) != Path.GetFullPath(kfmTarget) && File.Exists(kfmFile))
                         {
+                            if (File.Exists(archiveFile)) File.Delete(archiveFile);
                             File.Move(kfmFile, archiveFile);
                         }
-                        Console.WriteLine("Da luu tru file KFM: " + Path.GetFileName(kfmFile));
                     }
+                    Console.WriteLine("Da luu tru file KFM: " + archiveFileName);
 
                     // Write status.json
                     try
@@ -974,7 +1050,8 @@ namespace ReconcileData
         static List<string> ReadSharedStrings(string filepath)
         {
             var sharedStrings = new List<string>();
-            using (ZipArchive zip = ZipFile.OpenRead(filepath))
+            using (var fs = new FileStream(filepath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (ZipArchive zip = new ZipArchive(fs, ZipArchiveMode.Read))
             {
                 var sstEntry = zip.GetEntry("xl/sharedStrings.xml");
                 if (sstEntry != null)
@@ -1024,7 +1101,8 @@ namespace ReconcileData
             var rows = new List<string[]>();
             var sharedStrings = ReadSharedStrings(filepath);
             
-            using (ZipArchive zip = ZipFile.OpenRead(filepath))
+            using (var fs = new FileStream(filepath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (ZipArchive zip = new ZipArchive(fs, ZipArchiveMode.Read))
             {
                 var sheetEntry = zip.GetEntry("xl/worksheets/sheet1.xml");
                 if (sheetEntry == null)
@@ -1188,6 +1266,12 @@ namespace ReconcileData
                 {
                     return validFiles.OrderByDescending(f => File.GetLastWriteTime(f)).FirstOrDefault();
                 }
+
+                var anyFiles = files.Where(f => !Path.GetFileName(f).StartsWith("~$")).ToList();
+                if (anyFiles.Count > 0)
+                {
+                    return anyFiles.OrderByDescending(f => File.GetLastWriteTime(f)).FirstOrDefault();
+                }
             }
             return "";
         }
@@ -1218,6 +1302,16 @@ namespace ReconcileData
             if (match.Success)
             {
                 return match.Value;
+            }
+            var matchFull = System.Text.RegularExpressions.Regex.Match(filename, @"(\d{2})[_\.](\d{2})[_\.](\d{4})");
+            if (matchFull.Success)
+            {
+                return matchFull.Groups[1].Value + matchFull.Groups[2].Value + matchFull.Groups[3].Value;
+            }
+            var matchShort = System.Text.RegularExpressions.Regex.Match(filename, @"(\d{2})[_\.](\d{2})");
+            if (matchShort.Success)
+            {
+                return matchShort.Groups[1].Value + matchShort.Groups[2].Value + DateTime.Now.Year.ToString();
             }
             return "";
         }
@@ -1276,6 +1370,16 @@ namespace ReconcileData
             int colSlipCode = FindCol(header, new[] { "Mã chuyển hàng", "Ma chuyen hang", "Mã phiếu", "Ma phieu" });
             int colDate = FindCol(header, new[] { "Ngày chuyển hàng", "Ngay chuyen hang", "Ngày tạo", "Ngay tao", "Ngày chuyển", "Ngay chuyen" });
             int colCate = FindCol(header, new[] { "Nhóm hàng", "Nhom hang", "Category", "Loại hàng", "Loai hang" });
+            int colStatus = -1;
+            for (int j = 0; j < header.Length; j++)
+            {
+                string h = header[j].Trim();
+                if (h.Equals("Trạng thái", StringComparison.OrdinalIgnoreCase) || h.Equals("Trang thai", StringComparison.OrdinalIgnoreCase))
+                {
+                    colStatus = j;
+                    break;
+                }
+            }
 
             // Fallbacks if not found
             if (colBranch == -1) colBranch = 3;
@@ -1329,6 +1433,16 @@ namespace ReconcileData
                         continue;
                     }
 
+                    // Skip row if slip status is canceled
+                    if (colStatus != -1 && row.Length > colStatus)
+                    {
+                        string statusVal = row[colStatus].Trim();
+                        if (IsCanceledStatus(statusVal))
+                        {
+                            continue;
+                        }
+                    }
+
                     string product = row[colProduct].Trim();
                     // Skip product starting with C (case-insensitive)
                     if (product.StartsWith("C", StringComparison.OrdinalIgnoreCase))
@@ -1345,7 +1459,7 @@ namespace ReconcileData
                     string category = NormalizeCategory(rawCate);
 
                     string formattedDate = FormatDate(kfmDateStr);
-                    cleanRows.Add(new[] { formattedDate, "", slipCode, branch, product, productName, uom, qty });
+                    cleanRows.Add(new[] { formattedDate, category, slipCode, branch, product, productName, uom, qty });
 
                     decimal qtyVal = 0;
                     if (decimal.TryParse(qty.Replace(",", ""), out qtyVal))
@@ -1359,21 +1473,35 @@ namespace ReconcileData
                 }
             }
 
-            // Write to new XLSX
-            CreateCleanXlsx(destFile, cleanRows);
-
             // Write to temp CSV for Google Sheets upload
             try
             {
                 string csvTemp = @"C:\temp_restore\clean_kfm.csv";
                 string csvTempDir = Path.GetDirectoryName(csvTemp);
                 if (!Directory.Exists(csvTempDir)) Directory.CreateDirectory(csvTempDir);
-                WriteCsv(csvTemp, cleanRows);
-                Console.WriteLine("Da ghi file CSV tam thoi de day Google Sheets: " + csvTemp);
+
+                var csvLines = new List<string>();
+                foreach (var r in cleanRows)
+                {
+                    var escaped = r.Select(c => "\"" + c.Replace("\"", "\"\"") + "\"");
+                    csvLines.Add(string.Join(",", escaped));
+                }
+                File.WriteAllLines(csvTemp, csvLines, Encoding.UTF8);
+                Console.WriteLine("Da tao file CSV tam thoi C:\\temp_restore\\clean_kfm.csv thanh cong.");
             }
             catch (Exception csvEx)
             {
-                Console.WriteLine("Loi khi ghi file CSV tam thoi: " + csvEx.Message);
+                Console.WriteLine("Loi khi tao CSV tam: " + csvEx.Message);
+            }
+
+            // Write to new XLSX Archive
+            try
+            {
+                CreateCleanXlsx(destFile, cleanRows);
+            }
+            catch (Exception xlsxEx)
+            {
+                Console.WriteLine("Loi khi luu archive XLSX: " + xlsxEx.Message);
             }
 
             stats.TotalQty = totalQty;
@@ -1501,11 +1629,17 @@ namespace ReconcileData
             // Ngày, Loại hàng, Tên viết tắt, Mã PO, Mã nhà cung cấp, Mã hàng, Tên hàng, ĐVT, Số lượng PO, Số lượng PR (thực nhận)
             cleanRows.Add(new[] { "Ngày", "Loại hàng", "Tên viết tắt", "Mã PO", "Mã nhà cung cấp", "Mã hàng", "Tên hàng", "ĐVT", "Số lượng PO", "Số lượng PR (thực nhận)" });
             
-            // Target date in format ddMMyyyy converts to dd/MM/yyyy
+            // Target date in format ddMMyyyy converts to dd/MM/yyyy (and also support D-1 yesterday)
             string expectedDateStr = "";
+            string expectedPrevDateStr = "";
             if (!string.IsNullOrEmpty(targetDate) && targetDate.Length == 8)
             {
-                expectedDateStr = targetDate.Substring(0, 2) + "/" + targetDate.Substring(2, 2) + "/" + targetDate.Substring(4, 4);
+                DateTime tDt = ParseDateStr(targetDate);
+                if (tDt != DateTime.MinValue)
+                {
+                    expectedDateStr = tDt.ToString("dd/MM/yyyy");
+                    expectedPrevDateStr = tDt.AddDays(-1).ToString("dd/MM/yyyy");
+                }
             }
             
             for (int i = 1; i < prData.Count; i++)
@@ -1529,13 +1663,13 @@ namespace ReconcileData
                         continue;
                     }
                     
-                    // Date filter
-                    if (!string.IsNullOrEmpty(expectedDateStr) && !string.IsNullOrEmpty(dateVal))
+                    // Date filter: accept strictly yesterday D-1 date (or expectedPrevDateStr)
+                    if (!string.IsNullOrEmpty(expectedPrevDateStr) && !string.IsNullOrEmpty(dateVal))
                     {
                         string datePart = dateVal.Split(' ')[0];
-                        if (datePart != expectedDateStr)
+                        if (datePart != expectedPrevDateStr)
                         {
-                            continue; // skip rows not matching the target date
+                            continue; // skip rows not matching yesterday D-1 date
                         }
                     }
                     
@@ -1553,6 +1687,138 @@ namespace ReconcileData
             WriteCsv(csvPath, cleanRows);
         }
 
+        static void ProcessBooking(string excelPath, string csvPath, string targetDateFilter = null)
+        {
+            if (!File.Exists(excelPath)) throw new FileNotFoundException("Booking Excel file not found: " + excelPath);
+
+            var bookingData = ReadExcelOrCsv(excelPath);
+            if (bookingData.Count < 2) throw new Exception("Booking Excel file is empty or missing headers.");
+
+            var header = bookingData[0];
+            int colDate = FindCol(header, new[] { "Ngày chuyển mong muốn", "Ngay chuyen mong muon" });
+            int colBranch = -1;
+            for (int i = 0; i < header.Length; i++)
+            {
+                string h = header[i].Trim();
+                if ((h.IndexOf("Nơi nhận", StringComparison.OrdinalIgnoreCase) >= 0 || h.IndexOf("Noi nhan", StringComparison.OrdinalIgnoreCase) >= 0) 
+                    && !h.Contains("viết tắt") && !h.Contains("viet tat") && !h.Contains("viêt tăt"))
+                {
+                    colBranch = i;
+                    break;
+                }
+            }
+            int colPo = FindCol(header, new[] { "Mã Phiếu", "Ma Phieu" });
+            int colProduct = FindCol(header, new[] { "Barcode", "Mã hàng", "Ma hang" });
+            int colProductName = FindCol(header, new[] { "Tên sản phẩm", "Ten san pham" });
+            int colUom = FindCol(header, new[] { "Đơn vị", "Don vi", "ĐVT", "DVT" });
+            int colQty = FindCol(header, new[] { "Số lượng y/c chuyển ban đầu", "So luong y/c chuyen ban dau" });
+            int colStatus = -1;
+            for (int i = 0; i < header.Length; i++)
+            {
+                string h = header[i].Trim();
+                if (h.Equals("Trạng thái", StringComparison.OrdinalIgnoreCase) || h.Equals("Trang thai", StringComparison.OrdinalIgnoreCase))
+                {
+                    colStatus = i;
+                    break;
+                }
+            }
+
+            if (colDate == -1) colDate = 12; // Column M (Excel) -> Col A (GS)
+            if (colBranch == -1) colBranch = 7; // Column H (Excel) -> Col C (GS)
+            if (colPo == -1) colPo = 1; // Column B (Excel) -> Col D (GS)
+            if (colProduct == -1) colProduct = 4; // Column E (Excel) -> Col E (GS)
+            if (colProductName == -1) colProductName = 5; // Column F (Excel) -> Col F (GS)
+            if (colUom == -1) colUom = 10; // Column K (Excel) -> Col G (GS)
+            if (colQty == -1) colQty = 9; // Column J (Excel) -> Col H (GS)
+            if (colStatus == -1) colStatus = 17; // Column R (Excel) for filtering
+
+            var cleanRows = new List<string[]>();
+            // 8 columns matching Google Sheet Columns A to H:
+            // Col A: Ngày chuyển hàng (Col T Excel)
+            // Col B: Loại hàng (Blank, auto-lookup from tab Loại Hàng via Barcode)
+            // Col C: Nơi nhận (Col F Excel)
+            // Col D: Mã Phiếu (Col B Excel)
+            // Col E: Barcode / Mã hàng (Col C Excel)
+            // Col F: Tên sản phẩm (Col D Excel)
+            // Col G: Đơn vị (Col E Excel)
+            // Col H: Số lượng y/c chuyển ban đầu (Col H Excel)
+            cleanRows.Add(new[] { "Ngày chuyển hàng", "Loại hàng", "Nơi nhận", "Mã Phiếu", "Barcode", "Tên sản phẩm", "Đơn vị", "Số lượng y/c chuyển ban đầu" });
+
+            string targetNorm = NormalizeDateString(targetDateFilter);
+
+            for (int i = 1; i < bookingData.Count; i++)
+            {
+                var row = bookingData[i];
+                int maxCol = Math.Max(colDate, Math.Max(colBranch, Math.Max(colPo, Math.Max(colProduct, Math.Max(colProductName, Math.Max(colUom, Math.Max(colQty, colStatus)))))));
+                if (row.Length > maxCol)
+                {
+                    string dateVal = row[colDate].Trim();
+                    string branch = row[colBranch].Trim();
+                    string po = row[colPo].Trim();
+                    string product = row[colProduct].Trim();
+                    string productName = row[colProductName].Trim();
+                    string uom = row[colUom].Trim();
+                    string qty = row[colQty].Trim();
+                    string status = row[colStatus].Trim();
+
+                    // Step 5: Filter out rows where status is "Đã hủy" / "Da huy"
+                    if (IsCanceledStatus(status))
+                    {
+                        continue;
+                    }
+
+                    // Filter out product code starting with C
+                    if (product.StartsWith("C", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    string formattedDate = "";
+                    if (!string.IsNullOrEmpty(dateVal))
+                    {
+                        formattedDate = dateVal.Split(' ')[0];
+                    }
+
+                    // Optional date filtering based on "Ngày chuyển hàng mong muốn" column
+                    if (!string.IsNullOrEmpty(targetNorm))
+                    {
+                        string rowNorm = NormalizeDateString(formattedDate);
+                        if (!string.IsNullOrEmpty(rowNorm) && !string.Equals(rowNorm, targetNorm, StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue; // Skip row if "Ngày chuyển hàng mong muốn" does not match target date
+                        }
+                    }
+
+                    // 8 columns matching GS Col A-H: A=Date(T), B=LoaiHang(""), C=Branch(F), D=Po(B), E=Product(C), F=ProductName(D), G=Uom(E), H=Qty(H)
+                    cleanRows.Add(new[] { formattedDate, "", branch, po, product, productName, uom, qty });
+                }
+            }
+
+            WriteCsv(csvPath, cleanRows);
+        }
+
+        static string NormalizeDateString(string dStr)
+        {
+            if (string.IsNullOrWhiteSpace(dStr)) return "";
+            dStr = dStr.Trim().Split(' ')[0];
+            if (dStr.Length == 8 && dStr.All(char.IsDigit))
+            {
+                return dStr.Substring(0, 2) + "/" + dStr.Substring(2, 2) + "/" + dStr.Substring(4, 4);
+            }
+            dStr = dStr.Replace('-', '/');
+            DateTime dt;
+            string[] formats = { "dd/MM/yyyy", "d/M/yyyy", "yyyy/MM/dd", "yyyy-MM-dd", "MM/dd/yyyy" };
+            if (DateTime.TryParseExact(dStr, formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out dt))
+            {
+                return dt.ToString("dd/MM/yyyy");
+            }
+            if (DateTime.TryParse(dStr, out dt))
+            {
+                return dt.ToString("dd/MM/yyyy");
+            }
+            return dStr;
+        }
+
         static string GetCellRef(int colIdx, int rowNum)
         {
             string colName = "";
@@ -1564,6 +1830,12 @@ namespace ReconcileData
                 temp = (temp - 1) / 26;
             }
             return colName + rowNum;
+        }
+
+        static bool IsCanceledStatus(string statusVal)
+        {
+            if (string.IsNullOrWhiteSpace(statusVal)) return false;
+            return System.Text.RegularExpressions.Regex.IsMatch(statusVal, @"\b(hủy|huy)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
     }
 }

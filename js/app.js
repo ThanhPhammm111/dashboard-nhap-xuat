@@ -852,14 +852,15 @@ async function runReconcile() {
 }
 
 // Converts a shareable Google Sheets link into a downloadable CSV export URL
-function convertSheetsUrlToCsv(url) {
+function convertSheetsUrlToCsv(url, forceGid) {
   if (!url) return "";
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
   if (!match) return url;
   const id = match[1];
   
   const gidMatch = url.match(/gid=([0-9]+)/);
-  const gid = gidMatch ? gidMatch[1] : "0";
+  let gid = gidMatch ? gidMatch[1] : "0";
+  if (forceGid) gid = forceGid;
   
   return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
 }
