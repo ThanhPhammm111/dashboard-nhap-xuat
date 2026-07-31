@@ -12,6 +12,18 @@
   "totalAbaQty": 103052.8
 },
 {
+  "lastUpdated": "2026-07-31 12:54:50",
+  "kfmFile": "KFM_31072026.xlsx",
+  "kfmDate": "31/07/2026",
+  "abaFile": "Direct Upload",
+  "abaDate": "31/07/2026",
+  "mismatchCount": 0,
+  "participatingStores": 210,
+  "resultFile": "Result_31072026.csv",
+  "totalKfmQty": 84494.2,
+  "totalAbaQty": 84494.2
+},
+{
   "lastUpdated": "2026-07-30 10:21:01",
   "kfmFile": "KFM_30072026.xlsx",
   "kfmDate": "30/07/2026",
@@ -24,7 +36,7 @@
   "totalAbaQty": 111851.2
 },
 {
-  "lastUpdated": "2026-07-29 11:23:34",
+  "lastUpdated": "2026-07-30 14:20:13",
   "kfmFile": "KFM_29072026.xlsx",
   "kfmDate": "29/07/2026",
   "abaFile": "Direct Upload",
@@ -32,8 +44,8 @@
   "mismatchCount": 0,
   "participatingStores": 207,
   "resultFile": "Result_29072026.csv",
-  "totalKfmQty": 95905.4,
-  "totalAbaQty": 95905.4
+  "totalKfmQty": 95982.0,
+  "totalAbaQty": 95982.0
 },
 {
   "lastUpdated": "2026-07-28 17:00:26",
