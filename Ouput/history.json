@@ -12,6 +12,18 @@
   "totalAbaQty": 103052.8
 },
 {
+  "lastUpdated": "2026-08-02 12:47:42",
+  "kfmFile": "KFM_02082026.xlsx",
+  "kfmDate": "02/08/2026",
+  "abaFile": "Direct Upload",
+  "abaDate": "02/08/2026",
+  "mismatchCount": 0,
+  "participatingStores": 214,
+  "resultFile": "Result_02082026.csv",
+  "totalKfmQty": 123891.6,
+  "totalAbaQty": 123891.6
+},
+{
   "lastUpdated": "2026-08-01 09:57:24",
   "kfmFile": "KFM_01082026.xlsx",
   "kfmDate": "01/08/2026",
