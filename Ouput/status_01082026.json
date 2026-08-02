@@ -1,12 +1,12 @@
 ﻿{
-  "lastUpdated": "2026-08-02 15:51:33",
-  "kfmFile": "KFM_01082026.xlsx",
+  "lastUpdated": "2026-08-02 16:14:37",
+  "kfmFile": "transfer_01082026-155419.xlsx",
   "kfmDate": "01/08/2026",
-  "abaFile": "FakeABA.csv",
+  "abaFile": "Direct Upload",
   "abaDate": "01/08/2026",
   "mismatchCount": 0,
-  "participatingStores": 0,
+  "participatingStores": 210,
   "resultFile": "Result_01082026.csv",
-  "totalKfmQty": 0,
-  "totalAbaQty": 0
+  "totalKfmQty": 119633.4,
+  "totalAbaQty": 119633.4
 }
